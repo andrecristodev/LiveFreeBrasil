@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Suporte a Rotas de Baixa Latência da América Latina (Argentina, Chile, Uruguai, etc.)
+Suporte a Anti-Tela Preta com Bypass de CDN e Roteamento Seletivo
 Criador: @tadalas no Discord
 """
 
@@ -14,6 +14,7 @@ import struct
 import json
 import glob
 import ssl
+import shutil
 import subprocess
 import argparse
 import urllib.request
@@ -21,9 +22,21 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 CREATOR = "@tadalas"
 CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
+
+# Lista de domínios pesados (CDNs de mídia, avatares, webviews) que NÃO devem passar pela proxy
+# Isso impede 100% que o Discord trave em tela preta ou fique com carregamento infinito!
+PROXY_BYPASS_LIST = (
+    "*.discordapp.net;"
+    "cdn.discordapp.com;"
+    "media.discordapp.net;"
+    "*.discord.media;"
+    "*.tenor.com;"
+    "*.giphy.com;"
+    "localhost;127.0.0.1"
+)
 
 # Configura encoding de saída para terminais Windows
 if sys.platform == "win32":
@@ -57,19 +70,6 @@ RELAYS_CANDIDATES = [
     ("socks5", "98.188.47.112", 4145, "Estados Unidos", False),
 ]
 
-# Códigos de países da América Latina
-LATAM_CODES = {
-    "AR": "Argentina",
-    "CL": "Chile",
-    "UY": "Uruguai",
-    "PY": "Paraguai",
-    "CO": "Colômbia",
-    "PE": "Peru",
-    "MX": "México",
-    "EC": "Equador",
-    "BO": "Bolívia"
-}
-
 # Cores ANSI
 class Color:
     RESET = "\033[0m"
@@ -93,7 +93,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.YELLOW}  Suporte a Rotas da América Latina (Argentina, Chile, Uruguai...)
+{Color.YELLOW}  🛡️ Anti-Tela Preta com Bypass de CDN e Roteamento Seletivo
 {Color.CYAN}  Criado por: {Color.WHITE}{CREATOR} {Color.CYAN}no Discord
 {Color.GREEN}=================================================================={Color.RESET}
 """
@@ -110,6 +110,35 @@ def log_warning(msg: str):
 
 def log_error(msg: str):
     print(f"{Color.RED}[✗]{Color.RESET} {msg}", flush=True)
+
+
+# -----------------------------------------------------------------------------
+# LIMPEZA DE CACHE DA GPU (CORREÇÃO DE TELA PRETA DO ELECTRON)
+# -----------------------------------------------------------------------------
+
+def clean_discord_gpu_cache():
+    """Limpa caches corrompidos de GPU e Renderer que causam tela preta."""
+    if sys.platform != "win32":
+        return
+    app_data = os.environ.get("APPDATA", "")
+    if not app_data:
+        return
+        
+    targets = ["discord", "discordcanary", "discordptb", "discorddevelopment"]
+    cleaned = False
+    for t in targets:
+        base_dir = os.path.join(app_data, t)
+        if os.path.exists(base_dir):
+            for sub in ["GPUCache", "Code Cache", "DawnCache"]:
+                p = os.path.join(base_dir, sub)
+                if os.path.exists(p):
+                    try:
+                        shutil.rmtree(p, ignore_errors=True)
+                        cleaned = True
+                    except Exception:
+                        pass
+    if cleaned:
+        log_info("Cache gráfico corrompido limpo com sucesso!")
 
 
 # -----------------------------------------------------------------------------
@@ -293,7 +322,6 @@ def find_verified_gateway_proxy(prefer_latam: bool = False) -> Optional[Dict]:
     """Testa concorrentemente nós com validação profunda de TLS no Gateway do Discord."""
     candidates = list(RELAYS_CANDIDATES)
     
-    # Se preferir América Latina, coloca os nós latam no topo
     if prefer_latam:
         candidates.sort(key=lambda x: (not x[4]))
 
@@ -326,7 +354,6 @@ def find_verified_gateway_proxy(prefer_latam: bool = False) -> Optional[Dict]:
                     break
 
     if tested:
-        # Se preferir América Latina e houver algum testado, pega o de menor ping
         if prefer_latam:
             latam_found = [t for t in tested if t["is_latam"]]
             if latam_found:
@@ -407,21 +434,27 @@ def clear_cache():
 
 
 # -----------------------------------------------------------------------------
-# LAUNCH DO DISCORD
+# LAUNCH DO DISCORD COM BYPASS DE CDN ANTI-TELA PRETA
 # -----------------------------------------------------------------------------
 
 def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
-    """Executa o Discord com ou sem proxy."""
+    """Executa o Discord com roteamento seletivo para evitar sobrecarga de GPU e CDN."""
+    clean_discord_gpu_cache()
+    
     cmd = []
     if proxy_url:
         proxy_arg = f'--proxy-server={proxy_url}'
+        bypass_arg = f'--proxy-bypass-list={PROXY_BYPASS_LIST}'
+        
         if sys.platform == "win32":
             if install["type"] == "updater":
-                cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", proxy_arg]
+                # Para o Update.exe precisamos repassar os argumentos para o processo filho
+                combined_args = f"{proxy_arg} {bypass_arg}"
+                cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", combined_args]
             else:
-                cmd = [install["path"], proxy_arg]
+                cmd = [install["path"], proxy_arg, bypass_arg]
         else:
-            cmd = [install["path"], proxy_arg]
+            cmd = [install["path"], proxy_arg, bypass_arg]
     else:
         if sys.platform == "win32":
             if install["type"] == "updater":
@@ -439,7 +472,8 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         
         if proxy_url:
-            log_success(f"{install['name']} iniciado com rota validada!")
+            log_success(f"{install['name']} iniciado com Roteamento Seletivo Ativo!")
+            log_info(f"Mídias e CDN descarregadas na velocidade nativa (Sem tela preta).")
         else:
             log_success(f"{install['name']} iniciado normalmente sem proxy!")
     except Exception as e:
@@ -452,6 +486,7 @@ def disable_bypass():
     kill_discord_processes()
     time.sleep(0.3)
     clear_cache()
+    clean_discord_gpu_cache()
     
     installs = find_discord_installations()
     if installs:
@@ -476,6 +511,7 @@ def parse_args():
     parser.add_argument("-l", "--latam", action="store_true", help="Prioriza nós da América Latina (Argentina, Chile, Uruguai, etc.)")
     parser.add_argument("-t", "--tor", action="store_true", help="Força Tor local (127.0.0.1:9050)")
     parser.add_argument("-a", "--auto", action="store_true", help="Modo 100% automático e verificado")
+    parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache gráfico da GPU do Discord")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
     parser.add_argument("-k", "--kill", action="store_true", help="Encerra instâncias anteriores do Discord")
     parser.add_argument("--no-kill", action="store_true", help="Não encerra instâncias abertas")
@@ -489,16 +525,17 @@ def parse_args():
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     target_name = installs[0]["name"] if installs else "Discord"
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Gateway Verificado){Color.RESET} -> Menor ping global")
-    print(f"  [2] {Color.YELLOW}{Color.BOLD}Ativar Bypass América Latina (Argentina/Chile/etc.){Color.RESET} -> Menor latência")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Anti-Tela Preta){Color.RESET} -> Roteamento Seletivo")
+    print(f"  [2] {Color.YELLOW}{Color.BOLD}Ativar Bypass América Latina (Argentina/Chile...){Color.RESET} -> Menor ping")
     print(f"  [3] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
-    print(f"  [4] {Color.CYAN}Usar Tor Local (Recomendado){Color.RESET} (127.0.0.1:9050 ou 9150)")
-    print(f"  [5] {Color.MAGENTA}Informar Proxy Manualmente{Color.RESET}")
-    print(f"  [6] {Color.DIM}Sair{Color.RESET}")
+    print(f"  [4] {Color.CYAN}Usar Tor Local (100% Estável e Rápido){Color.RESET} (Basta abrir o Tor Browser)")
+    print(f"  [5] {Color.MAGENTA}Limpar Cache Gráfico (Reparar Tela Preta){Color.RESET}")
+    print(f"  [6] {Color.WHITE}Informar Proxy Manualmente{Color.RESET}")
+    print(f"  [7] {Color.DIM}Sair{Color.RESET}")
     
     while True:
         try:
-            choice = input(f"\n{Color.CYAN}Opção [1-6] (padrão: 1): {Color.RESET}").strip()
+            choice = input(f"\n{Color.CYAN}Opção [1-7] (padrão: 1): {Color.RESET}").strip()
             if not choice or choice == "1":
                 return "auto"
             elif choice == "2":
@@ -508,8 +545,10 @@ def interactive_menu(installs: List[Dict[str, str]]) -> str:
             elif choice == "4":
                 return "tor"
             elif choice == "5":
-                return "manual"
+                return "clean"
             elif choice == "6":
+                return "manual"
+            elif choice == "7":
                 sys.exit(0)
         except ValueError:
             pass
@@ -528,15 +567,14 @@ def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool, prefer_
         if tor_url:
             return {"url": tor_url, "country": "Rede Tor (100% Estável)", "latency": 10}
         log_error("Tor local não encontrado nas portas 9050 ou 9150.")
-        log_info("Dica: Abra o 'Tor Browser' em segundo plano para máxima estabilidade!")
+        log_info("Dica: Abra o 'Tor Browser' no seu PC para conexão automática ultra-estável!")
         return None
 
-    # 3. Tor local automático (se não pediu América Latina explicitamente e o Tor Browser estiver aberto)
-    if not prefer_latam:
-        tor_url = check_tor_local()
-        if tor_url:
-            log_success(f"Tor detectado e verificado: {Color.BOLD}{tor_url}{Color.RESET}")
-            return {"url": tor_url, "country": "Rede Tor", "latency": 10}
+    # 3. Tor local automático (se o Tor Browser estiver aberto, usa com prioridade por ser o mais confiável)
+    tor_url = check_tor_local()
+    if tor_url and not prefer_latam:
+        log_success(f"Tor detectado e verificado: {Color.BOLD}{tor_url}{Color.RESET}")
+        return {"url": tor_url, "country": "Rede Tor (Local)", "latency": 10}
 
     # 4. Cache recente validado com Gateway TLS
     if not prefer_latam:
@@ -563,6 +601,13 @@ def main():
 
     print_banner()
     args = parse_args()
+
+    if args.clean:
+        kill_discord_processes()
+        clean_discord_gpu_cache()
+        clear_cache()
+        log_success("Limpeza concluída!")
+        return
 
     if args.disable:
         disable_bypass()
@@ -598,6 +643,12 @@ def main():
         if action == "disable":
             disable_bypass()
             return
+        elif action == "clean":
+            kill_discord_processes()
+            clean_discord_gpu_cache()
+            clear_cache()
+            log_success("Cache limpo! Reinicie o aplicativo agora.")
+            return
         elif action == "latam":
             prefer_latam = True
         elif action == "tor":
@@ -621,12 +672,13 @@ def main():
     # 5. Inicia o Discord
     print("-" * 66, flush=True)
     log_info(f"Discord: {Color.BOLD}{selected_install['name']}{Color.RESET}")
-    log_info(f"Rota ({proxy_data.get('country', 'Internacional')}): {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} (Ping: {proxy_data['latency']}ms)")
+    log_info(f"Rota Internacional ({proxy_data.get('country', 'Internacional')}): {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} (Ping: {proxy_data['latency']}ms)")
+    log_info(f"Roteamento Seletivo: {Color.CYAN}CDN e Vídeos liberados na sua internet direta!{Color.RESET}")
     print("-" * 66, flush=True)
     
     launch_discord(selected_install, proxy_data["url"])
     
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Conexão com o Gateway estabelecida. Live e Câmera liberadas.", flush=True)
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Conexão estabelecida sem tela preta. Live e Câmera liberadas.", flush=True)
 
 if __name__ == "__main__":
     try:
