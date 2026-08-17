@@ -21,6 +21,6 @@ missing module named grp - imported by subprocess (delayed, conditional, optiona
 missing module named pwd - imported by posixpath (delayed, conditional, optional), subprocess (delayed, conditional, optional), shutil (delayed, optional), tarfile (optional), pathlib (optional), netrc (delayed, optional)
 missing module named _frozen_importlib_external - imported by importlib._bootstrap (delayed), importlib (optional), importlib.abc (optional)
 excluded module named _frozen_importlib - imported by importlib (optional), importlib.abc (optional)
-missing module named 'collections.abc' - imported by tracemalloc (top-level), typing (top-level), _colorize (top-level), traceback (top-level), selectors (top-level), logging (top-level), http.client (top-level), importlib.resources.readers (top-level), inspect (top-level)
+missing module named 'collections.abc' - imported by tracemalloc (top-level), typing (top-level), traceback (top-level), _colorize (top-level), selectors (top-level), logging (top-level), http.client (top-level), importlib.resources.readers (top-level), inspect (top-level)
 missing module named _scproxy - imported by urllib.request (conditional)
 missing module named _posixsubprocess - imported by subprocess (conditional)

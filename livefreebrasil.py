@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Modo Tor Browser Minimizado / Oculto com Auto-Conexão e Detecção Inteligente
+Motor Tor 100% Silencioso em Segundo Plano (Sem Janela, Sem Clique, 100% Automático)
 Criador: @tadalas no Discord
 """
 
@@ -21,7 +21,7 @@ import urllib.request
 import urllib.error
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 CREATOR = "@tadalas"
 
 # Configura encoding de saída para terminais Windows
@@ -55,7 +55,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.CYAN}  🧅 Tor Integrado Minimizado com Auto-Connect Automático
+{Color.CYAN}  🧅 Motor Tor 100% Invisível em Segundo Plano (Zero Janelas)
 {Color.YELLOW}  Criado por: {Color.WHITE}{CREATOR} {Color.YELLOW}no Discord
 {Color.GREEN}=================================================================={Color.RESET}
 """
@@ -75,47 +75,50 @@ def log_error(msg: str):
 
 
 # -----------------------------------------------------------------------------
-# DETECÇÃO, CONFIGURAÇÃO E AUTO-START MINIMIZADO DO TOR BROWSER
+# GERENCIAMENTO DO MOTOR TOR NATIVO 100% SILENCIOSO
 # -----------------------------------------------------------------------------
 
-def locate_tor_browser_executable() -> Optional[str]:
-    """Busca o executável do Tor Browser no sistema."""
+def find_tor_binary_and_data() -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Localiza o tor.exe e os arquivos geoip/geoip6."""
     user_home = os.path.expanduser("~")
-    possible_paths = [
-        os.path.join(user_home, "Desktop", "Tor Browser", "Browser", "firefox.exe"),
-        os.path.join(user_home, "OneDrive", "Desktop", "Tor Browser", "Browser", "firefox.exe"),
-        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Tor Browser", "Browser", "firefox.exe"),
-        os.path.join(os.environ.get("ProgramFiles", ""), "Tor Browser", "Browser", "firefox.exe"),
-        os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Tor Browser", "Browser", "firefox.exe"),
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    
+    candidates = [
+        # Tor Browser Desktop
+        (
+            os.path.join(user_home, "Desktop", "Tor Browser", "Browser", "TorBrowser", "Tor", "tor.exe"),
+            os.path.join(user_home, "Desktop", "Tor Browser", "Browser", "TorBrowser", "Data", "Tor", "geoip"),
+            os.path.join(user_home, "Desktop", "Tor Browser", "Browser", "TorBrowser", "Data", "Tor", "geoip6")
+        ),
+        # OneDrive Desktop
+        (
+            os.path.join(user_home, "OneDrive", "Desktop", "Tor Browser", "Browser", "TorBrowser", "Tor", "tor.exe"),
+            os.path.join(user_home, "OneDrive", "Desktop", "Tor Browser", "Browser", "TorBrowser", "Data", "Tor", "geoip"),
+            os.path.join(user_home, "OneDrive", "Desktop", "Tor Browser", "Browser", "TorBrowser", "Data", "Tor", "geoip6")
+        ),
+        # AppData
+        (
+            os.path.join(local_app_data, "LiveFreeBrasil", "tor", "tor", "tor.exe"),
+            os.path.join(local_app_data, "LiveFreeBrasil", "tor", "data", "geoip"),
+            os.path.join(local_app_data, "LiveFreeBrasil", "tor", "data", "geoip6")
+        ),
+        # Program Files
+        (
+            os.path.join(os.environ.get("ProgramFiles", ""), "Tor Browser", "Browser", "TorBrowser", "Tor", "tor.exe"),
+            os.path.join(os.environ.get("ProgramFiles", ""), "Tor Browser", "Browser", "TorBrowser", "Data", "Tor", "geoip"),
+            os.path.join(os.environ.get("ProgramFiles", ""), "Tor Browser", "Browser", "TorBrowser", "Data", "Tor", "geoip6")
+        )
     ]
-    for p in possible_paths:
-        if os.path.exists(p):
-            return p
-    return None
+    
+    for t_exe, g, g6 in candidates:
+        if os.path.exists(t_exe):
+            return t_exe, g if os.path.exists(g) else None, g6 if os.path.exists(g6) else None
+            
+    return None, None, None
 
 
-def configure_tor_autoconnect(tor_exe: str):
-    """Configura o Tor Browser para conectar 100% automático sem perguntar."""
-    try:
-        base_browser = os.path.dirname(tor_exe)
-        profile_dir = os.path.join(base_browser, "TorBrowser", "Data", "Browser", "profile.default")
-        if os.path.exists(profile_dir):
-            user_js_path = os.path.join(profile_dir, "user.js")
-            prefs = [
-                'user_pref("torlauncher.prompt_at_startup", false);',
-                'user_pref("torlauncher.auto_connect", true);',
-                'user_pref("extensions.torlauncher.prompt_at_startup", false);',
-                'user_pref("extensions.torlauncher.auto_connect", true);',
-                'user_pref("browser.startup.page", 0);'
-            ]
-            with open(user_js_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(prefs) + "\n")
-    except Exception:
-        pass
-
-
-def test_tor_socks_traffic(port: int = 9150, timeout: float = 1.0) -> bool:
-    """Verifica se o Tor está conectado e passando tráfego HTTPS real com sucesso."""
+def test_tor_traffic(port: int = 9050, timeout: float = 1.0) -> bool:
+    """Valida se a porta SOCKS do Tor está ativa e trafegando dados com sucesso."""
     try:
         s = socket.create_connection(("127.0.0.1", port), timeout=timeout)
         s.sendall(b"\x05\x01\x00")
@@ -141,67 +144,78 @@ def test_tor_socks_traffic(port: int = 9150, timeout: float = 1.0) -> bool:
         return False
 
 
-def install_tor_via_winget() -> bool:
-    """Instala o Tor Browser via winget de forma silenciosa."""
-    log_info("Instalando Tor Browser oficial automaticamente...")
-    try:
-        subprocess.run(
-            ["winget", "install", "-e", "--id", "TorProject.TorBrowser", "--accept-package-agreements", "--accept-source-agreements", "--silent"],
-            check=True
-        )
-        log_success("Tor Browser instalado com sucesso!")
-        return True
-    except Exception as e:
-        log_error(f"Falha na instalação automática: {e}")
-        return False
+def start_silent_tor_daemon() -> Optional[str]:
+    """Inicia o daemon do Tor 100% invisível em segundo plano e conecta sozinho."""
+    # 1. Checa se já está rodando
+    if test_tor_traffic(9050, timeout=0.5):
+        log_success(f"Tor em segundo plano já ativo: {Color.BOLD}socks5://127.0.0.1:9050{Color.RESET}")
+        return "socks5://127.0.0.1:9050"
+    if test_tor_traffic(9150, timeout=0.5):
+        log_success(f"Tor já ativo: {Color.BOLD}socks5://127.0.0.1:9150{Color.RESET}")
+        return "socks5://127.0.0.1:9150"
 
-
-def launch_tor_minimized_and_wait() -> Optional[str]:
-    """Inicia o Tor Browser minimizado e aguarda o túnel SOCKS5 estar 100% pronto."""
-    # 1. Checa se já está rodando e com tráfego ativo
-    for port in [9150, 9050]:
-        if test_tor_socks_traffic(port, timeout=0.5):
-            log_success(f"Tor detectado e pronto: {Color.BOLD}socks5://127.0.0.1:{port}{Color.RESET}")
-            return f"socks5://127.0.0.1:{port}"
-
-    # 2. Localiza ou instala o Tor Browser
-    tor_exe = locate_tor_browser_executable()
+    # 2. Localiza os binários
+    tor_exe, geoip, geoip6 = find_tor_binary_and_data()
     if not tor_exe:
-        if install_tor_via_winget():
-            tor_exe = locate_tor_browser_executable()
-
-    if not tor_exe:
-        log_error("Tor Browser não encontrado no sistema.")
+        log_error("Binário do Tor não encontrado.")
         return None
 
-    # 3. Configura auto-conexão e inicia minimizado
-    configure_tor_autoconnect(tor_exe)
-    log_info("Iniciando Tor Browser minimizado em segundo plano...")
-    try:
-        ps_cmd = f"Start-Process '{tor_exe}' -WindowStyle Minimized"
-        subprocess.run(["powershell", "-WindowStyle", "Hidden", "-Command", ps_cmd], check=False)
-    except Exception:
-        try:
-            DETACHED_PROCESS = 0x00000008
-            subprocess.Popen([tor_exe], creationflags=DETACHED_PROCESS)
-        except Exception:
-            pass
+    # 3. Mata instâncias zumbis
+    subprocess.run(["taskkill", "/F", "/IM", "tor.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    time.sleep(0.3)
 
-    # 4. Aguarda conexão do Tor
-    print(f"{Color.CYAN}[*] Estabelecendo conexão com a rede Tor...{Color.RESET}")
-    for i in range(25):
-        time.sleep(1.0)
-        for port in [9150, 9050]:
-            if test_tor_socks_traffic(port, timeout=0.8):
-                log_success(f"Tor conectado e validado com sucesso: {Color.BOLD}socks5://127.0.0.1:{port}{Color.RESET}")
-                return f"socks5://127.0.0.1:{port}"
-        sys.stdout.write(f"\r{Color.YELLOW}[*] Conectando ({i+1}s/25s)... (Se for a 1ª vez, marque 'Conectar automaticamente' na janela do Tor){Color.RESET}")
+    # 4. Diretório de dados isolado
+    my_data_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "LiveFreeBrasil", "tor_data")
+    os.makedirs(my_data_dir, exist_ok=True)
+
+    cmd = [tor_exe, "--DataDirectory", my_data_dir, "--SocksPort", "9050"]
+    if geoip and geoip6:
+        cmd.extend(["--GeoIPFile", geoip, "--GeoIPv6File", geoip6])
+
+    log_info("Iniciando motor Tor silencioso em segundo plano...")
+    CREATE_NO_WINDOW = 0x08000000
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            creationflags=CREATE_NO_WINDOW,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+    except Exception as e:
+        log_error(f"Falha ao iniciar processo Tor: {e}")
+        return None
+
+    # 5. Monitora progresso real de bootstrap
+    last_pct = "0"
+    for _ in range(40):
+        time.sleep(0.5)
+        # Checa se já trafega
+        if test_tor_traffic(9050, timeout=0.5):
+            print("", flush=True)
+            log_success(f"Túnel Tor 100% conectado e seguro: {Color.BOLD}socks5://127.0.0.1:9050{Color.RESET}")
+            return "socks5://127.0.0.1:9050"
+            
+        sys.stdout.write(f"\r{Color.CYAN}[*] Estabelecendo circuito seguro com a rede internacional...{Color.RESET}")
         sys.stdout.flush()
     print("", flush=True)
 
-    log_error("O Tor demorou para responder.")
-    log_info("Dica: Clique em 'Conectar' no Tor Browser e marque a caixinha 'Conectar automaticamente'!")
+    if test_tor_traffic(9050, timeout=1.0):
+        return "socks5://127.0.0.1:9050"
+
+    log_error("O Tor não completou a conexão no tempo limite.")
     return None
+
+
+def kill_tor_processes():
+    """Encerra processos do Tor."""
+    if sys.platform == "win32":
+        try:
+            subprocess.run(["taskkill", "/F", "/IM", "tor.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            subprocess.run(["taskkill", "/F", "/IM", "firefox.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except Exception:
+            pass
 
 
 # -----------------------------------------------------------------------------
@@ -367,6 +381,7 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
 def disable_bypass():
     log_warning("Desativando LiveFreeBrasil e restaurando Discord normal...")
     kill_discord_processes()
+    kill_tor_processes()
     time.sleep(0.3)
     clean_discord_gpu_cache()
     
@@ -389,8 +404,8 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
     
-    parser.add_argument("-t", "--tor", action="store_true", help="Usa o Tor Browser com auto-start minimizado")
-    parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9150)")
+    parser.add_argument("-t", "--tor", action="store_true", help="Usa o Tor silencioso em segundo plano")
+    parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9050)")
     parser.add_argument("-a", "--auto", action="store_true", help="Modo 100% automático")
     parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache gráfico da GPU do Discord")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
@@ -405,8 +420,8 @@ def parse_args():
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     target_name = installs[0]["name"] if installs else "Discord"
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Tor Minimizado - Auto-Connect){Color.RESET}")
-    print(f"      {Color.DIM}↳ Conecta automaticamente em segundo plano. 100% estável para Streams & Câmera.{Color.RESET}")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Motor Invisível - 100% Automático){Color.RESET}")
+    print(f"      {Color.DIM}↳ Conecta sozinho em segundo plano sem abrir nenhuma janela do navegador.{Color.RESET}")
     print(f"  [2] {Color.RED}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
     print(f"  [3] {Color.MAGENTA}Limpar Cache Gráfico (Reparar Tela Preta){Color.RESET}")
     print(f"  [4] {Color.WHITE}Informar Proxy Manualmente{Color.RESET}")
@@ -484,15 +499,15 @@ def main():
         kill_discord_processes()
         time.sleep(0.3)
 
-    # 4. Resolve e valida conexão do Tor minimizado
+    # 4. Inicia motor seguro silencioso
     proxy_url = None
-    country_label = "Tor Browser (Minimizado)"
+    country_label = "Motor Invisível"
     
     if manual_proxy_url:
         proxy_url = manual_proxy_url if "://" in manual_proxy_url else f"socks5://{manual_proxy_url}"
         country_label = "Manual"
     else:
-        proxy_url = launch_tor_minimized_and_wait()
+        proxy_url = start_silent_tor_daemon()
 
     if not proxy_url:
         log_error("Não foi possível estabelecer a conexão segura.")
