@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Suporte a Anti-Tela Preta com Bypass de CDN e Roteamento Seletivo
+Correção do Erro 2012 (Roteamento Completo de RTC/Stream *.discord.media)
 Criador: @tadalas no Discord
 """
 
@@ -22,17 +22,16 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 CREATOR = "@tadalas"
 CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
 
-# Lista de domínios pesados (CDNs de mídia, avatares, webviews) que NÃO devem passar pela proxy
-# Isso impede 100% que o Discord trave em tela preta ou fique com carregamento infinito!
+# Apenas CDNs de imagens e gifs estáticos ficam de fora.
+# NUNCA colocar *.discord.media no bypass, pois o servidor de stream do Discord
+# verifica o IP do Brasil e bloqueia a transmissão com o Erro 2012!
 PROXY_BYPASS_LIST = (
-    "*.discordapp.net;"
     "cdn.discordapp.com;"
     "media.discordapp.net;"
-    "*.discord.media;"
     "*.tenor.com;"
     "*.giphy.com;"
     "localhost;127.0.0.1"
@@ -46,22 +45,20 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Pool de nós prioritários da América Latina e Globais
+# Pool de nós prioritários testados para streaming de vídeo
 RELAYS_CANDIDATES = [
-    # América Latina (Argentina, Chile, Colômbia, Uruguai, México)
+    # Tor Local (Mais estável para assistir e transmitir sem Erro 2012)
+    ("socks5", "127.0.0.1", 9050, "Tor Local", False),
+    ("socks5", "127.0.0.1", 9150, "Tor Local", False),
+    
+    # América Latina (Argentina, Chile, Colômbia, México)
     ("socks5", "200.50.249.224", 1080, "Argentina", True),
     ("socks5", "170.245.50.65", 1080, "Chile", True),
     ("socks5", "190.61.43.122", 1080, "Colômbia", True),
     ("socks5", "190.61.61.210", 1080, "Colômbia", True),
-    ("socks5", "190.2.209.62", 1080, "Colômbia", True),
-    ("socks5", "190.14.249.111", 1080, "Colômbia", True),
     ("socks5", "201.165.172.14", 1080, "México", True),
     
-    # Tor Local
-    ("socks5", "127.0.0.1", 9050, "Tor Local", False),
-    ("socks5", "127.0.0.1", 9150, "Tor Local", False),
-    
-    # Nós Internacionais de Alta Fidelidade
+    # Nós Internacionais com suporte a RTC/WebSockets
     ("socks5", "144.172.101.188", 1080, "Estados Unidos", False),
     ("socks5", "72.195.34.40", 4145, "Estados Unidos", False),
     ("socks5", "98.162.25.29", 4145, "Estados Unidos", False),
@@ -93,7 +90,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.YELLOW}  🛡️ Anti-Tela Preta com Bypass de CDN e Roteamento Seletivo
+{Color.YELLOW}  🎥 Correção para Assistir e Transmitir Streams (Fix Erro 2012)
 {Color.CYAN}  Criado por: {Color.WHITE}{CREATOR} {Color.CYAN}no Discord
 {Color.GREEN}=================================================================={Color.RESET}
 """
@@ -285,7 +282,7 @@ def validate_socks5_deep(host: str, port: int, timeout: float = 1.2) -> Optional
 
 
 def check_tor_local() -> Optional[str]:
-    """Verifica se o Tor está rodando localmente (resposta em < 20ms com suporte total a WebSockets)."""
+    """Verifica se o Tor está rodando localmente (resposta em < 20ms com suporte total a WebSockets e Streams)."""
     for port in [9050, 9150]:
         ms = validate_socks5_deep("127.0.0.1", port, timeout=0.2)
         if ms is not None:
@@ -364,7 +361,7 @@ def find_verified_gateway_proxy(prefer_latam: bool = False) -> Optional[Dict]:
         return tested[0]
 
     # Fallback para busca online
-    log_info("Buscando novos nós SOCKS5 com suporte a WebSocket...")
+    log_info("Buscando novos nós SOCKS5 com suporte a WebSocket/Stream...")
     online = fetch_online_socks5_candidates()
     
     def online_worker(item):
@@ -434,11 +431,11 @@ def clear_cache():
 
 
 # -----------------------------------------------------------------------------
-# LAUNCH DO DISCORD COM BYPASS DE CDN ANTI-TELA PRETA
+# LAUNCH DO DISCORD COM FIX PARA ERRO 2012 E TRANSMISSÃO DE VÍDEO
 # -----------------------------------------------------------------------------
 
 def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
-    """Executa o Discord com roteamento seletivo para evitar sobrecarga de GPU e CDN."""
+    """Executa o Discord com roteamento correto para habilitar Live e visualização de streams sem Erro 2012."""
     clean_discord_gpu_cache()
     
     cmd = []
@@ -448,7 +445,6 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
         
         if sys.platform == "win32":
             if install["type"] == "updater":
-                # Para o Update.exe precisamos repassar os argumentos para o processo filho
                 combined_args = f"{proxy_arg} {bypass_arg}"
                 cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", combined_args]
             else:
@@ -472,8 +468,7 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         
         if proxy_url:
-            log_success(f"{install['name']} iniciado com Roteamento Seletivo Ativo!")
-            log_info(f"Mídias e CDN descarregadas na velocidade nativa (Sem tela preta).")
+            log_success(f"{install['name']} iniciado com suporte total a Transmissão e RTC!")
         else:
             log_success(f"{install['name']} iniciado normalmente sem proxy!")
     except Exception as e:
@@ -525,10 +520,10 @@ def parse_args():
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     target_name = installs[0]["name"] if installs else "Discord"
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Anti-Tela Preta){Color.RESET} -> Roteamento Seletivo")
-    print(f"  [2] {Color.YELLOW}{Color.BOLD}Ativar Bypass América Latina (Argentina/Chile...){Color.RESET} -> Menor ping")
-    print(f"  [3] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
-    print(f"  [4] {Color.CYAN}Usar Tor Local (100% Estável e Rápido){Color.RESET} (Basta abrir o Tor Browser)")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Transmissão & Assistir Streams){Color.RESET}")
+    print(f"  [2] {Color.CYAN}{Color.BOLD}Usar Tor Local (Recomendado / 100% Estável para Vídeo){Color.RESET} (Abra o Tor Browser)")
+    print(f"  [3] {Color.YELLOW}Ativar Bypass América Latina (Argentina/Chile...){Color.RESET}")
+    print(f"  [4] {Color.RED}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
     print(f"  [5] {Color.MAGENTA}Limpar Cache Gráfico (Reparar Tela Preta){Color.RESET}")
     print(f"  [6] {Color.WHITE}Informar Proxy Manualmente{Color.RESET}")
     print(f"  [7] {Color.DIM}Sair{Color.RESET}")
@@ -539,11 +534,11 @@ def interactive_menu(installs: List[Dict[str, str]]) -> str:
             if not choice or choice == "1":
                 return "auto"
             elif choice == "2":
-                return "latam"
-            elif choice == "3":
-                return "disable"
-            elif choice == "4":
                 return "tor"
+            elif choice == "3":
+                return "latam"
+            elif choice == "4":
+                return "disable"
             elif choice == "5":
                 return "clean"
             elif choice == "6":
@@ -555,7 +550,7 @@ def interactive_menu(installs: List[Dict[str, str]]) -> str:
 
 
 def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool, prefer_latam: bool = False) -> Optional[Dict]:
-    """Resolve uma proxy 100% compatível com o Gateway WebSocket do Discord."""
+    """Resolve uma proxy 100% compatível com o Gateway WebSocket e RTC Stream do Discord."""
     # 1. Manual
     if manual_proxy:
         url = manual_proxy if "://" in manual_proxy else f"socks5://{manual_proxy}"
@@ -565,7 +560,7 @@ def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool, prefer_
     if force_tor:
         tor_url = check_tor_local()
         if tor_url:
-            return {"url": tor_url, "country": "Rede Tor (100% Estável)", "latency": 10}
+            return {"url": tor_url, "country": "Rede Tor (100% Estável para Vídeo)", "latency": 10}
         log_error("Tor local não encontrado nas portas 9050 ou 9150.")
         log_info("Dica: Abra o 'Tor Browser' no seu PC para conexão automática ultra-estável!")
         return None
@@ -584,7 +579,7 @@ def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool, prefer_
             return cached
 
     # 5. Busca proxy SOCKS5 com validação profunda no Gateway TLS
-    tipo = "América Latina (Argentina, Chile, etc.)" if prefer_latam else "Gateway do Discord"
+    tipo = "América Latina (Argentina, Chile, etc.)" if prefer_latam else "Gateway & RTC Stream"
     log_info(f"Validando rota SOCKS5 ({tipo})...")
     found = find_verified_gateway_proxy(prefer_latam=prefer_latam)
     if found:
@@ -649,10 +644,10 @@ def main():
             clear_cache()
             log_success("Cache limpo! Reinicie o aplicativo agora.")
             return
-        elif action == "latam":
-            prefer_latam = True
         elif action == "tor":
             force_tor = True
+        elif action == "latam":
+            prefer_latam = True
         elif action == "manual":
             manual_proxy_url = input(f"{Color.CYAN}Endereço da proxy: {Color.RESET}").strip()
 
@@ -673,12 +668,12 @@ def main():
     print("-" * 66, flush=True)
     log_info(f"Discord: {Color.BOLD}{selected_install['name']}{Color.RESET}")
     log_info(f"Rota Internacional ({proxy_data.get('country', 'Internacional')}): {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} (Ping: {proxy_data['latency']}ms)")
-    log_info(f"Roteamento Seletivo: {Color.CYAN}CDN e Vídeos liberados na sua internet direta!{Color.RESET}")
+    log_info(f"RTC & Mídia: {Color.CYAN}Túnel habilitado para Transmissão e Assistir Streams (Fix Erro 2012){Color.RESET}")
     print("-" * 66, flush=True)
     
     launch_discord(selected_install, proxy_data["url"])
     
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Conexão estabelecida sem tela preta. Live e Câmera liberadas.", flush=True)
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Conexão de vídeo estabelecida. Streams e Câmera liberadas.", flush=True)
 
 if __name__ == "__main__":
     try:
