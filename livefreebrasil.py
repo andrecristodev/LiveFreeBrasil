@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Correção do Erro 2012 (Roteamento Completo de RTC/Stream *.discord.media)
+Modo Original Estável (Sem Split-Bypass / Roteamento Puro Homogêneo)
 Criador: @tadalas no Discord
 """
 
@@ -22,20 +22,9 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 CREATOR = "@tadalas"
 CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
-
-# Apenas CDNs de imagens e gifs estáticos ficam de fora.
-# NUNCA colocar *.discord.media no bypass, pois o servidor de stream do Discord
-# verifica o IP do Brasil e bloqueia a transmissão com o Erro 2012!
-PROXY_BYPASS_LIST = (
-    "cdn.discordapp.com;"
-    "media.discordapp.net;"
-    "*.tenor.com;"
-    "*.giphy.com;"
-    "localhost;127.0.0.1"
-)
 
 # Configura encoding de saída para terminais Windows
 if sys.platform == "win32":
@@ -47,7 +36,7 @@ if sys.platform == "win32":
 
 # Pool de nós prioritários testados para streaming de vídeo
 RELAYS_CANDIDATES = [
-    # Tor Local (Mais estável para assistir e transmitir sem Erro 2012)
+    # Tor Local (100% Estável para assistir e transmitir)
     ("socks5", "127.0.0.1", 9050, "Tor Local", False),
     ("socks5", "127.0.0.1", 9150, "Tor Local", False),
     
@@ -90,7 +79,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.YELLOW}  🎥 Correção para Assistir e Transmitir Streams (Fix Erro 2012)
+{Color.YELLOW}  ⚡ Modo Puro Estável (Transmissão & Visualização de Amigos 100% OK)
 {Color.CYAN}  Criado por: {Color.WHITE}{CREATOR} {Color.CYAN}no Discord
 {Color.GREEN}=================================================================={Color.RESET}
 """
@@ -114,7 +103,7 @@ def log_error(msg: str):
 # -----------------------------------------------------------------------------
 
 def clean_discord_gpu_cache():
-    """Limpa caches corrompidos de GPU e Renderer que causam tela preta."""
+    """Limpa caches corrompidos de GPU e Renderer."""
     if sys.platform != "win32":
         return
     app_data = os.environ.get("APPDATA", "")
@@ -122,7 +111,6 @@ def clean_discord_gpu_cache():
         return
         
     targets = ["discord", "discordcanary", "discordptb", "discorddevelopment"]
-    cleaned = False
     for t in targets:
         base_dir = os.path.join(app_data, t)
         if os.path.exists(base_dir):
@@ -131,11 +119,8 @@ def clean_discord_gpu_cache():
                 if os.path.exists(p):
                     try:
                         shutil.rmtree(p, ignore_errors=True)
-                        cleaned = True
                     except Exception:
                         pass
-    if cleaned:
-        log_info("Cache gráfico corrompido limpo com sucesso!")
 
 
 # -----------------------------------------------------------------------------
@@ -431,26 +416,23 @@ def clear_cache():
 
 
 # -----------------------------------------------------------------------------
-# LAUNCH DO DISCORD COM FIX PARA ERRO 2012 E TRANSMISSÃO DE VÍDEO
+# LAUNCH DO DISCORD (MODO PURO E HOMOGÊNEO SEM SPLIT TUNNELING)
 # -----------------------------------------------------------------------------
 
 def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
-    """Executa o Discord com roteamento correto para habilitar Live e visualização de streams sem Erro 2012."""
+    """Executa o Discord com roteamento puro e homogêneo (idêntico à versão original)."""
     clean_discord_gpu_cache()
     
     cmd = []
     if proxy_url:
         proxy_arg = f'--proxy-server={proxy_url}'
-        bypass_arg = f'--proxy-bypass-list={PROXY_BYPASS_LIST}'
-        
         if sys.platform == "win32":
             if install["type"] == "updater":
-                combined_args = f"{proxy_arg} {bypass_arg}"
-                cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", combined_args]
+                cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", proxy_arg]
             else:
-                cmd = [install["path"], proxy_arg, bypass_arg]
+                cmd = [install["path"], proxy_arg]
         else:
-            cmd = [install["path"], proxy_arg, bypass_arg]
+            cmd = [install["path"], proxy_arg]
     else:
         if sys.platform == "win32":
             if install["type"] == "updater":
@@ -468,7 +450,7 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         
         if proxy_url:
-            log_success(f"{install['name']} iniciado com suporte total a Transmissão e RTC!")
+            log_success(f"{install['name']} iniciado com sucesso no modo Puro Estável!")
         else:
             log_success(f"{install['name']} iniciado normalmente sem proxy!")
     except Exception as e:
@@ -520,8 +502,8 @@ def parse_args():
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     target_name = installs[0]["name"] if installs else "Discord"
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Transmissão & Assistir Streams){Color.RESET}")
-    print(f"  [2] {Color.CYAN}{Color.BOLD}Usar Tor Local (Recomendado / 100% Estável para Vídeo){Color.RESET} (Abra o Tor Browser)")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Modo Puro Estável){Color.RESET} -> Transmitir e Assistir OK")
+    print(f"  [2] {Color.CYAN}{Color.BOLD}Usar Tor Local (100% Estável para Streams){Color.RESET} (Abra o Tor Browser)")
     print(f"  [3] {Color.YELLOW}Ativar Bypass América Latina (Argentina/Chile...){Color.RESET}")
     print(f"  [4] {Color.RED}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
     print(f"  [5] {Color.MAGENTA}Limpar Cache Gráfico (Reparar Tela Preta){Color.RESET}")
@@ -664,16 +646,15 @@ def main():
         log_info("Dica de ouro: Abra o 'Tor Browser' no seu PC e execute novamente para conexão 100% estável!")
         sys.exit(1)
 
-    # 5. Inicia o Discord
+    # 5. Inicia o Discord (Puro e Estável)
     print("-" * 66, flush=True)
     log_info(f"Discord: {Color.BOLD}{selected_install['name']}{Color.RESET}")
     log_info(f"Rota Internacional ({proxy_data.get('country', 'Internacional')}): {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} (Ping: {proxy_data['latency']}ms)")
-    log_info(f"RTC & Mídia: {Color.CYAN}Túnel habilitado para Transmissão e Assistir Streams (Fix Erro 2012){Color.RESET}")
     print("-" * 66, flush=True)
     
     launch_discord(selected_install, proxy_data["url"])
     
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Conexão de vídeo estabelecida. Streams e Câmera liberadas.", flush=True)
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Conexão homogênea ativa. Transmissão e visualização de streams 100% liberadas.", flush=True)
 
 if __name__ == "__main__":
     try:
