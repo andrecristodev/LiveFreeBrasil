@@ -10,7 +10,15 @@ Ferramenta de linha de comando para **Windows, Linux e macOS** que restaura as *
 
 ---
 
-## 📌 Por que o bloqueio acontece e como o LiveFreeBrasil funciona
+## ⬇️ Download Direto (Executável Windows)
+
+Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
+
+👉 **[Baixar LiveFreeBrasil.exe (Release v1.0.0)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+
+Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho!
+
+---
 
 Em agosto de 2026, a ANPD determinou a suspensão das transmissões ao vivo (Lives) e câmeras no Discord para usuários no Brasil.
 
