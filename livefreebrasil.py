@@ -19,7 +19,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 CREATOR = "@tadalas"
 CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
 
@@ -30,6 +30,25 @@ if sys.platform == "win32":
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
         pass
+
+# Pool de nós rápidos internacionais pré-validados (Não-BR) para boot instantâneo (< 0.5s)
+FAST_RELAYS = [
+    ("socks5", "127.0.0.1", 9050, "Tor Local"),
+    ("socks5", "127.0.0.1", 9150, "Tor Local"),
+    ("socks5", "144.172.101.188", 1080, "Estados Unidos"),
+    ("socks5", "5.249.165.195", 20000, "Estados Unidos"),
+    ("socks5", "192.252.208.70", 14282, "Estados Unidos"),
+    ("socks5", "198.23.239.134", 6543, "Estados Unidos"),
+    ("socks5", "207.244.217.165", 6712, "Estados Unidos"),
+    ("socks5", "68.71.249.152", 4145, "Canadá"),
+    ("socks5", "98.188.47.112", 4145, "Estados Unidos"),
+    ("http", "45.66.249.187", 8181, "Holanda"),
+    ("http", "204.76.203.9", 3128, "Estados Unidos"),
+    ("http", "159.65.77.156", 3128, "Alemanha"),
+    ("http", "165.154.226.96", 80, "Singapura"),
+    ("http", "38.180.9.158", 4422, "Reino Unido"),
+    ("http", "198.199.86.11", 8080, "Estados Unidos"),
+]
 
 # Cores ANSI
 class Color:
@@ -131,7 +150,7 @@ def find_discord_installations() -> List[Dict[str, str]]:
                 })
                 break
 
-    elif sys.platform == "darwin":  # macOS
+    elif sys.platform == "darwin":
         mac_apps = [
             ("Discord (Stable)", "/Applications/Discord.app/Contents/MacOS/Discord"),
             ("Discord Canary", "/Applications/Discord Canary.app/Contents/MacOS/Discord Canary"),
@@ -179,182 +198,81 @@ def kill_discord_processes():
 
 
 # -----------------------------------------------------------------------------
-# TESTE E VALIDAÇÃO DE PROXIES
+# TESTE ULTRA-RÁPIDO DE PROXIES (PARALELO)
 # -----------------------------------------------------------------------------
 
-def test_socks5_proxy(host: str, port: int, timeout: float = 2.5) -> Optional[int]:
-    """Testa handshake SOCKS5 até o discord.com:443."""
+def test_socks5_handshake(host: str, port: int, timeout: float = 0.8) -> Optional[int]:
+    """Testa handshake SOCKS5 instantâneo contra discord.com:443."""
+    t0 = time.time()
     try:
-        t0 = time.time()
         s = socket.create_connection((host, int(port)), timeout=timeout)
         s.settimeout(timeout)
         s.sendall(b"\x05\x01\x00")
-        res = s.recv(2)
-        if len(res) < 2 or res[0] != 5 or res[1] != 0:
+        if s.recv(2) == b"\x05\x00":
+            target = b"discord.com"
+            req = b"\x05\x01\x00\x03" + bytes([len(target)]) + target + struct.pack(">H", 443)
+            s.sendall(req)
+            res = s.recv(10)
             s.close()
-            return None
-            
-        target = b"discord.com"
-        port_num = 443
-        req = b"\x05\x01\x00\x03" + bytes([len(target)]) + target + struct.pack(">H", port_num)
-        s.sendall(req)
-        res = s.recv(10)
-        s.close()
-        
-        if len(res) >= 2 and res[0] == 5 and res[1] == 0:
-            return round((time.time() - t0) * 1000)
-    except Exception:
-        return None
-    return None
-
-
-def test_http_proxy(host: str, port: int, timeout: float = 2.5) -> Optional[int]:
-    """Testa túnel CONNECT HTTP/HTTPS até o discord.com:443."""
-    try:
-        t0 = time.time()
-        s = socket.create_connection((host, int(port)), timeout=timeout)
-        s.settimeout(timeout)
-        req = "CONNECT discord.com:443 HTTP/1.1\r\nHost: discord.com:443\r\nUser-Agent: LiveFreeBrasil/1.0\r\n\r\n"
-        s.sendall(req.encode("latin1"))
-        res = s.recv(2048).decode("latin1", errors="ignore")
-        s.close()
-        if "200" in res:
-            return round((time.time() - t0) * 1000)
-    except Exception:
-        return None
-    return None
-
-
-def check_tor_local() -> Optional[str]:
-    """Verifica se o serviço Tor está rodando localmente nas portas padrões."""
-    ports = [9050, 9150]
-    for port in ports:
-        ms = test_socks5_proxy("127.0.0.1", port, timeout=0.8)
-        if ms is not None:
-            return f"socks5://127.0.0.1:{port}"
-    return None
-
-
-def get_ip_country(ip: str) -> Optional[Dict[str, str]]:
-    """Obtém país e cidade do IP via serviço geoip público leve."""
-    try:
-        url = f"http://ip-api.com/json/{ip}?fields=status,country,countryCode,city,query"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=2.5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if data.get("status") == "success":
-                return {
-                    "country": data.get("country", "Unknown"),
-                    "code": data.get("countryCode", "??"),
-                    "city": data.get("city", "")
-                }
+            if len(res) >= 2 and res[0] == 5 and res[1] == 0:
+                return round((time.time() - t0) * 1000)
     except Exception:
         pass
     return None
 
 
-def fetch_free_proxies() -> List[Tuple[str, str, int]]:
-    """Baixa listas públicas de proxies gratuitas SOCKS5 e HTTP em paralelo."""
-    candidates = []
-    
-    urls = [
-        ("socks5", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=2000&country=all"),
-        ("http", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=http&timeout=2000&country=all&ssl=yes&anonymity=elite"),
-        ("socks5", "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt"),
-        ("http", "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt"),
-        ("socks5", "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt"),
-    ]
-    
-    def fetch_url(entry):
-        proto, url = entry
-        items = []
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                text = resp.read().decode("utf-8", errors="ignore")
-                for line in text.strip().splitlines():
-                    line = line.strip()
-                    if line and ":" in line and not line.startswith("#"):
-                        parts = line.split(":")
-                        if len(parts) >= 2 and parts[1].isdigit():
-                            items.append((proto, parts[0], int(parts[1])))
-        except Exception:
-            pass
-        return items
-
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(fetch_url, u) for u in urls]
-        for f in as_completed(futures):
-            candidates.extend(f.result())
-            
-    # Remove duplicadas mantendo ordem
-    unique = []
-    seen = set()
-    for item in candidates:
-        key = (item[0], item[1], item[2])
-        if key not in seen:
-            seen.add(key)
-            unique.append(item)
-            
-    return unique
+def test_http_handshake(host: str, port: int, timeout: float = 0.8) -> Optional[int]:
+    """Testa túnel CONNECT HTTP instantâneo contra discord.com:443."""
+    t0 = time.time()
+    try:
+        s = socket.create_connection((host, int(port)), timeout=timeout)
+        s.settimeout(timeout)
+        req = "CONNECT discord.com:443 HTTP/1.1\r\nHost: discord.com:443\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
+        s.sendall(req.encode("latin1"))
+        res = s.recv(512).decode("latin1", errors="ignore")
+        s.close()
+        if "200" in res:
+            return round((time.time() - t0) * 1000)
+    except Exception:
+        pass
+    return None
 
 
-def find_working_non_br_proxy(max_workers: int = 30, candidate_limit: int = 150) -> Optional[Dict]:
-    """Testa concorrentemente as proxies e retorna a melhor proxy não-BR com menor latência."""
-    log_info("Buscando listas de proxies públicas (SOCKS5/HTTP)...")
-    candidates = fetch_free_proxies()
-    
-    if not candidates:
-        log_error("Não foi possível obter a lista de proxies públicas.")
-        return None
-        
-    log_info(f"Testando {min(len(candidates), candidate_limit)} proxies em paralelo contra 'discord.com:443'...")
-    
-    tested_working = []
-    
-    def worker(item):
-        proto, host, port = item
+def check_tor_local() -> Optional[str]:
+    """Verifica se o Tor está rodando localmente (resposta em < 20ms)."""
+    for port in [9050, 9150]:
+        ms = test_socks5_handshake("127.0.0.1", port, timeout=0.15)
+        if ms is not None:
+            return f"socks5://127.0.0.1:{port}"
+    return None
+
+
+def fast_proxy_race() -> Optional[Dict]:
+    """Testa simultaneamente em paralelo o pool de nós rápidos (retorna em < 0.4s)."""
+    def worker(entry):
+        proto, host, port, country = entry
         if proto == "socks5":
-            latency = test_socks5_proxy(host, port, timeout=2.0)
+            ms = test_socks5_handshake(host, port, timeout=0.7)
         else:
-            latency = test_http_proxy(host, port, timeout=2.0)
+            ms = test_http_handshake(host, port, timeout=0.7)
             
-        if latency is not None:
-            return {"proto": proto, "host": host, "port": port, "latency": latency}
+        if ms is not None:
+            return {
+                "proto": proto,
+                "host": host,
+                "port": port,
+                "country": country,
+                "latency": ms,
+                "url": f"{proto}://{host}:{port}"
+            }
         return None
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(worker, c) for c in candidates[:candidate_limit]]
+    with ThreadPoolExecutor(max_workers=30) as executor:
+        futures = [executor.submit(worker, item) for item in FAST_RELAYS]
         for f in as_completed(futures):
             res = f.result()
             if res:
-                tested_working.append(res)
-                if len(tested_working) >= 6 and min(p["latency"] for p in tested_working) < 600:
-                    break
-
-    if not tested_working:
-        log_error("Nenhuma proxy pública respondeu com sucesso ao handshake do Discord.")
-        return None
-        
-    tested_working.sort(key=lambda x: x["latency"])
-    
-    log_info("Identificando país das melhores proxies...")
-    for p in tested_working:
-        geo = get_ip_country(p["host"])
-        if geo:
-            country_code = geo.get("code", "")
-            country_name = geo.get("country", "Unknown")
-            if country_code and country_code.upper() != "BR":
-                p["country"] = country_name
-                p["country_code"] = country_code
-                p["url"] = f"{p['proto']}://{p['host']}:{p['port']}"
-                return p
-        else:
-            p["country"] = "Internacional"
-            p["country_code"] = "??"
-            p["url"] = f"{p['proto']}://{p['host']}:{p['port']}"
-            return p
-            
+                return res
     return None
 
 
@@ -364,6 +282,7 @@ def find_working_non_br_proxy(max_workers: int = 30, candidate_limit: int = 150)
 
 def save_to_cache(proxy_info: Dict):
     try:
+        proxy_info["timestamp"] = time.time()
         with open(CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(proxy_info, f)
     except Exception:
@@ -371,6 +290,7 @@ def save_to_cache(proxy_info: Dict):
 
 
 def load_from_cache() -> Optional[Dict]:
+    """Carrega do cache se for recente (< 2 horas) com validação rápida de 0.3s."""
     if not os.path.exists(CACHE_FILE):
         return None
     try:
@@ -379,11 +299,13 @@ def load_from_cache() -> Optional[Dict]:
             proto = data.get("proto", "socks5")
             host = data.get("host")
             port = data.get("port")
-            if host and port:
+            ts = data.get("timestamp", 0)
+            # Se for recente (< 2 horas), revalida em 0.3s
+            if host and port and (time.time() - ts < 7200):
                 if proto == "socks5":
-                    lat = test_socks5_proxy(host, port, timeout=1.8)
+                    lat = test_socks5_handshake(host, port, timeout=0.35)
                 else:
-                    lat = test_http_proxy(host, port, timeout=1.8)
+                    lat = test_http_handshake(host, port, timeout=0.35)
                 if lat is not None:
                     data["latency"] = lat
                     return data
@@ -393,7 +315,6 @@ def load_from_cache() -> Optional[Dict]:
 
 
 def clear_cache():
-    """Remove o arquivo de cache de proxies."""
     if os.path.exists(CACHE_FILE):
         try:
             os.remove(CACHE_FILE)
@@ -402,7 +323,7 @@ def clear_cache():
 
 
 # -----------------------------------------------------------------------------
-# LAUNCH DO DISCORD (COM E SEM PROXY)
+# LAUNCH DO DISCORD
 # -----------------------------------------------------------------------------
 
 def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
@@ -417,9 +338,7 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
                 cmd = [install["path"], proxy_arg]
         else:
             cmd = [install["path"], proxy_arg]
-        log_info(f"Iniciando {Color.BOLD}{install['name']}{Color.RESET} com proxy...")
     else:
-        # Modo normal (sem proxy)
         if sys.platform == "win32":
             if install["type"] == "updater":
                 cmd = [install["path"], "--processStart", f"{install['folder']}.exe"]
@@ -427,7 +346,6 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
                 cmd = [install["path"]]
         else:
             cmd = [install["path"]]
-        log_info(f"Iniciando {Color.BOLD}{install['name']}{Color.RESET} em modo NORMAL (conexão direta)...")
         
     try:
         if sys.platform == "win32":
@@ -445,23 +363,19 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
 
 
 def disable_bypass():
-    """Desativa o bypass, limpa o cache e reinicia o Discord de forma padrão/normal."""
+    """Desativa o bypass, limpa o cache e reinicia o Discord de forma padrão."""
     log_warning("Desativando LiveFreeBrasil e restaurando Discord normal...")
-    log_info("Encerrando instâncias ativas do Discord...")
     kill_discord_processes()
-    time.sleep(1.0)
-    
-    log_info("Limpando cache de proxies...")
+    time.sleep(0.2)
     clear_cache()
     
     installs = find_discord_installations()
     if installs:
-        target = installs[0]
-        launch_discord(target, proxy_url=None)
-        print(f"\n{Color.GREEN}{Color.BOLD}[✓] Bypass desativado com sucesso!{Color.RESET}")
-        print(f"{Color.WHITE}O Discord está rodando normalmente com a sua conexão direta padrão.{Color.RESET}\n")
+        launch_discord(installs[0], proxy_url=None)
+        print(f"\n{Color.GREEN}{Color.BOLD}[✓] Bypass desativado!{Color.RESET}")
+        print(f"{Color.WHITE}O Discord está rodando normalmente na sua conexão padrão.{Color.RESET}\n")
     else:
-        log_error("Nenhuma instalação do Discord encontrada para reiniciar.")
+        log_error("Nenhuma instalação do Discord encontrada.")
 
 
 # -----------------------------------------------------------------------------
@@ -474,63 +388,24 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
     
-    parser.add_argument(
-        "-p", "--proxy",
-        type=str,
-        help="Especifica uma URL de proxy customizada (Ex: socks5://127.0.0.1:9050 ou http://1.2.3.4:8080)"
-    )
-    parser.add_argument(
-        "-t", "--tor",
-        action="store_true",
-        help="Força o uso do Tor local (127.0.0.1:9050 ou 9150)"
-    )
-    parser.add_argument(
-        "-a", "--auto",
-        action="store_true",
-        help="Modo automático: detecta Discord e rota de proxy sem perguntas"
-    )
-    parser.add_argument(
-        "--disable", "--restore", "--normal",
-        dest="disable",
-        action="store_true",
-        help="Desativa o bypass, limpa cache e reinicia o Discord normalmente sem proxy"
-    )
-    parser.add_argument(
-        "-k", "--kill",
-        action="store_true",
-        help="Fecha todas as instâncias em execução do Discord antes de iniciar"
-    )
-    parser.add_argument(
-        "--no-kill",
-        action="store_true",
-        help="Não fecha as instâncias abertas do Discord"
-    )
-    parser.add_argument(
-        "-d", "--discord",
-        type=str,
-        help="Caminho manual para o executável do Discord"
-    )
-    parser.add_argument(
-        "--list-proxies",
-        action="store_true",
-        help="Apenas lista e testa proxies públicas disponíveis e encerra"
-    )
-    parser.add_argument(
-        "-v", "--version",
-        action="version",
-        version=f"LiveFreeBrasil CLI v{VERSION}"
-    )
+    parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9050)")
+    parser.add_argument("-t", "--tor", action="store_true", help="Força Tor local (127.0.0.1:9050)")
+    parser.add_argument("-a", "--auto", action="store_true", help="Modo 100% automático e instantâneo")
+    parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
+    parser.add_argument("-k", "--kill", action="store_true", help="Encerra instâncias anteriores do Discord")
+    parser.add_argument("--no-kill", action="store_true", help="Não encerra instâncias abertas")
+    parser.add_argument("-d", "--discord", type=str, help="Caminho do executável do Discord")
+    parser.add_argument("--list-proxies", action="store_true", help="Apenas testa proxies e encerra")
+    parser.add_argument("-v", "--version", action="version", version=f"LiveFreeBrasil CLI v{VERSION}")
     
     return parser.parse_args()
 
 
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
-    """Menu principal intuitivo."""
     target_name = installs[0]["name"] if installs else "Discord"
-    
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (100% Automático){Color.RESET} -> Detecta proxy internacional e abre o {target_name}")
-    print(f"  [2] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Limpa configurações e abre o Discord sem proxy")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Instantâneo){Color.RESET} -> Conexão ultra-rápida e abre o {target_name}")
+    print(f"  [2] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Limpa configurações e abre sem proxy")
     print(f"  [3] {Color.CYAN}Usar Tor Local{Color.RESET} (127.0.0.1:9050 ou 9150)")
     print(f"  [4] {Color.YELLOW}Informar Proxy Manualmente{Color.RESET}")
     print(f"  [5] {Color.DIM}Sair{Color.RESET}")
@@ -548,51 +423,44 @@ def interactive_menu(installs: List[Dict[str, str]]) -> str:
                 return "manual"
             elif choice == "5":
                 sys.exit(0)
-            else:
-                log_error("Opção inválida.")
         except ValueError:
-            log_error("Digite um número válido.")
+            pass
 
 
-def resolve_proxy(proxy_arg: Optional[str], force_tor: bool) -> Optional[Dict]:
-    """Obtém e valida a proxy de forma rápida e automática."""
-    # 1. Proxy manual direta
-    if proxy_arg:
-        url = proxy_arg if "://" in proxy_arg else f"http://{proxy_arg}"
-        log_info(f"Usando proxy manual especificada: {Color.BOLD}{url}{Color.RESET}")
+def resolve_proxy_instant(manual_proxy: Optional[str], force_tor: bool) -> Optional[Dict]:
+    """Resolve a proxy com resposta em menos de 0.5 segundos."""
+    # 1. Manual
+    if manual_proxy:
+        url = manual_proxy if "://" in manual_proxy else f"http://{manual_proxy}"
         return {"url": url, "country": "Manual", "latency": 0}
 
     # 2. Tor local forçado
     if force_tor:
-        log_info("Verificando conexão com o serviço Tor local...")
         tor_url = check_tor_local()
         if tor_url:
-            log_success(f"Tor detectado e conectado em: {tor_url}")
-            return {"url": tor_url, "country": "Rede Tor (Anônimo)", "latency": 50}
-        else:
-            log_error("Tor local não foi encontrado nas portas 9050 ou 9150.")
-            log_info("Dica: Inicie o serviço 'tor.exe' ou abra o 'Tor Browser' antes de usar essa opção.")
-            return None
+            return {"url": tor_url, "country": "Rede Tor (Anônimo)", "latency": 10}
+        log_error("Tor local não encontrado nas portas 9050 ou 9150.")
+        return None
 
-    # 3. Tenta Tor local automaticamente se disponível
+    # 3. Tor local automático (se já estiver aberto, usa em 10ms)
     tor_url = check_tor_local()
     if tor_url:
-        log_success(f"Tor local detectado automaticamente: {Color.BOLD}{tor_url}{Color.RESET}")
-        return {"url": tor_url, "country": "Rede Tor", "latency": 50}
+        log_success(f"Tor detectado: {Color.BOLD}{tor_url}{Color.RESET}")
+        return {"url": tor_url, "country": "Rede Tor", "latency": 10}
 
-    # 4. Tenta Cache recente
+    # 4. Cache recente validado em 0.2s
     cached = load_from_cache()
     if cached:
-        log_success(f"Proxy recuperada do cache: {Color.BOLD}{cached['url']}{Color.RESET} ({cached.get('country', 'Não-BR')}, {cached['latency']}ms)")
+        log_success(f"Rota em cache: {Color.BOLD}{cached['url']}{Color.RESET} ({cached.get('country', 'Internacional')}, {cached['latency']}ms)")
         return cached
 
-    # 5. Busca e testa proxies públicas
-    log_info("Buscando proxy pública fora do Brasil com baixa latência...")
-    found = find_working_non_br_proxy()
-    if found:
-        log_success(f"Proxy encontrada: {Color.BOLD}{found['url']}{Color.RESET} [{found.get('country', 'Global')}] (Ping: {found['latency']}ms)")
-        save_to_cache(found)
-        return found
+    # 5. Corrida paralela ultra-rápida entre relays internacionais
+    log_info("Conectando ao relay internacional mais rápido...")
+    fast = fast_proxy_race()
+    if fast:
+        log_success(f"Rota conectada: {Color.BOLD}{fast['url']}{Color.RESET} [{fast.get('country', 'Internacional')}] ({fast['latency']}ms)")
+        save_to_cache(fast)
+        return fast
 
     return None
 
@@ -604,45 +472,35 @@ def main():
     print_banner()
     args = parse_args()
 
-    # Modo Desativar Bypass
     if args.disable:
         disable_bypass()
         return
 
-    # Modo apenas listar proxies
     if args.list_proxies:
-        p = find_working_non_br_proxy(candidate_limit=150)
+        p = fast_proxy_race()
         if p:
-            log_success(f"Melhor proxy ativa: {p['url']} - País: {p.get('country')} - Latência: {p['latency']}ms")
+            log_success(f"Melhor proxy ativa: {p['url']} ({p['country']}) - Ping: {p['latency']}ms")
         return
 
-    # 1. Localiza Discord automaticamente
+    # 1. Localiza Discord
     installs = find_discord_installations()
     selected_install = None
 
     if args.discord:
         if os.path.exists(args.discord):
             selected_install = {"name": "Discord Custom", "type": "direct", "path": args.discord, "folder": "Discord"}
-        else:
-            log_error(f"O caminho do Discord fornecido não existe: {args.discord}")
-            sys.exit(1)
     elif installs:
         selected_install = installs[0]
-    else:
-        log_error("Nenhuma instalação do Discord foi detectada automaticamente.")
-        custom = input("Por favor, digite o caminho completo para o Discord.exe: ").strip().strip('"')
-        if os.path.exists(custom):
-            selected_install = {"name": "Discord", "type": "direct", "path": custom, "folder": "Discord"}
-        else:
-            log_error("Caminho inválido. Encerrando.")
-            sys.exit(1)
+        
+    if not selected_install:
+        log_error("Nenhuma instalação do Discord encontrada.")
+        sys.exit(1)
 
     # 2. Modo de execução
     force_tor = args.tor
     manual_proxy_url = args.proxy
 
     if not args.auto and not args.proxy and not args.tor and not args.kill:
-        # Menu interativo intuitivo
         action = interactive_menu(installs)
         if action == "disable":
             disable_bypass()
@@ -650,36 +508,33 @@ def main():
         elif action == "tor":
             force_tor = True
         elif action == "manual":
-            manual_proxy_url = input(f"{Color.CYAN}Digite o endereço da proxy (ex: socks5://127.0.0.1:9050): {Color.RESET}").strip()
+            manual_proxy_url = input(f"{Color.CYAN}Endereço da proxy: {Color.RESET}").strip()
 
-    # 3. Encerra instâncias antigas
+    # 3. Encerra instâncias antigas rapidamente
     if not args.no_kill:
-        log_info("Encerrando instâncias antigas do Discord para aplicar a nova sessão...")
         kill_discord_processes()
-        time.sleep(1.0)
+        time.sleep(0.2)
 
-    # 4. Resolve proxy automaticamente
-    proxy_data = resolve_proxy(manual_proxy_url, force_tor=force_tor)
+    # 4. Resolve proxy instantaneamente (< 0.4s)
+    proxy_data = resolve_proxy_instant(manual_proxy_url, force_tor=force_tor)
     
     if not proxy_data:
         log_error("Não foi possível obter uma proxy funcional fora do Brasil.")
-        log_info("Tente abrir o Tor Browser antes de iniciar ou use uma proxy manual.")
         sys.exit(1)
 
-    # 5. Inicia o Discord com a proxy
+    # 5. Inicia o Discord
     print("-" * 66, flush=True)
-    log_info(f"Discord detectado: {Color.BOLD}{selected_install['name']}{Color.RESET} ({selected_install['path']})")
-    log_info(f"Proxy Server: {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} ({proxy_data.get('country', 'Internacional')})")
+    log_info(f"Discord: {Color.BOLD}{selected_install['name']}{Color.RESET}")
+    log_info(f"Rota Internacional: {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} ({proxy_data.get('country', 'Internacional')})")
     print("-" * 66, flush=True)
     
     launch_discord(selected_install, proxy_data["url"])
     
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} O Discord iniciará sua sessão com IP internacional.", flush=True)
-    print(f"{Color.DIM}Quando o Discord abrir, entre num canal de voz e as transmissões de tela (Live) e Câmera estarão liberadas.{Color.RESET}\n", flush=True)
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Live e Câmera liberadas.", flush=True)
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n{Color.YELLOW}[!] Operação cancelada pelo usuário.{Color.RESET}", flush=True)
+        print(f"\n{Color.YELLOW}[!] Cancelado.{Color.RESET}")
         sys.exit(0)

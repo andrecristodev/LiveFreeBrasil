@@ -398,8 +398,7 @@
   ('multiprocessing',
    'C:\\Program Files\\Python314\\Lib\\multiprocessing\\__init__.py',
    'PYMODULE'),
-  ('difflib', 'C:\\Program Files\\Python314\\Lib\\difflib.py', 'PYMODULE'),
-  ('codeop', 'C:\\Program Files\\Python314\\Lib\\codeop.py', 'PYMODULE'),
+  ('_py_abc', 'C:\\Program Files\\Python314\\Lib\\_py_abc.py', 'PYMODULE'),
   ('stringprep',
    'C:\\Program Files\\Python314\\Lib\\stringprep.py',
    'PYMODULE'),
@@ -409,7 +408,8 @@
   ('tracemalloc',
    'C:\\Program Files\\Python314\\Lib\\tracemalloc.py',
    'PYMODULE'),
-  ('_py_abc', 'C:\\Program Files\\Python314\\Lib\\_py_abc.py', 'PYMODULE'),
+  ('difflib', 'C:\\Program Files\\Python314\\Lib\\difflib.py', 'PYMODULE'),
+  ('codeop', 'C:\\Program Files\\Python314\\Lib\\codeop.py', 'PYMODULE'),
   ('typing', 'C:\\Program Files\\Python314\\Lib\\typing.py', 'PYMODULE'),
   ('concurrent.futures',
    'C:\\Program Files\\Python314\\Lib\\concurrent\\futures\\__init__.py',
@@ -499,36 +499,9 @@
   ('_socket.pyd',
    'C:\\Program Files\\Python314\\DLLs\\_socket.pyd',
    'EXTENSION'),
-  ('api-ms-win-crt-filesystem-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-filesystem-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-crt-process-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-process-l1-1-0.dll',
-   'BINARY'),
-  ('VCRUNTIME140.dll',
-   'C:\\Program Files\\Python314\\VCRUNTIME140.dll',
-   'BINARY'),
-  ('api-ms-win-crt-math-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-math-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-crt-heap-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-heap-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-crt-conio-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-conio-l1-1-0.dll',
-   'BINARY'),
   ('api-ms-win-crt-convert-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-convert-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-crt-stdio-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-stdio-l1-1-0.dll',
    'BINARY'),
   ('api-ms-win-crt-locale-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
@@ -538,6 +511,18 @@
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-runtime-l1-1-0.dll',
    'BINARY'),
+  ('api-ms-win-crt-stdio-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-stdio-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-crt-conio-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-conio-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-crt-heap-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-heap-l1-1-0.dll',
+   'BINARY'),
   ('api-ms-win-crt-environment-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-environment-l1-1-0.dll',
@@ -546,9 +531,24 @@
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-string-l1-1-0.dll',
    'BINARY'),
+  ('api-ms-win-crt-process-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-process-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-crt-math-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-math-l1-1-0.dll',
+   'BINARY'),
   ('api-ms-win-crt-time-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-time-l1-1-0.dll',
+   'BINARY'),
+  ('VCRUNTIME140.dll',
+   'C:\\Program Files\\Python314\\VCRUNTIME140.dll',
+   'BINARY'),
+  ('api-ms-win-crt-filesystem-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-crt-filesystem-l1-1-0.dll',
    'BINARY'),
   ('api-ms-win-crt-utility-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
@@ -567,33 +567,77 @@
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\ucrtbase.dll',
    'BINARY'),
-  ('api-ms-win-core-file-l1-1-0.dll',
+  ('api-ms-win-core-console-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-file-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-memory-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-memory-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-processenvironment-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-processenvironment-l1-1-0.dll',
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-console-l1-1-0.dll',
    'BINARY'),
   ('api-ms-win-core-util-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-util-l1-1-0.dll',
    'BINARY'),
+  ('api-ms-win-core-profile-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-profile-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-memory-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-memory-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-namedpipe-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-namedpipe-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-sysinfo-l1-2-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-sysinfo-l1-2-0.dll',
+   'BINARY'),
   ('api-ms-win-core-handle-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-handle-l1-1-0.dll',
    'BINARY'),
-  ('api-ms-win-core-processthreads-l1-1-0.dll',
+  ('api-ms-win-core-kernel32-legacy-l1-1-1.dll',
    'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-processthreads-l1-1-0.dll',
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-kernel32-legacy-l1-1-1.dll',
+   'BINARY'),
+  ('api-ms-win-core-sysinfo-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-sysinfo-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-synch-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-synch-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-file-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-file-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-fibers-l1-1-1.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-fibers-l1-1-1.dll',
+   'BINARY'),
+  ('api-ms-win-core-synch-l1-2-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-synch-l1-2-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-file-l1-2-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-file-l1-2-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-string-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-string-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-fibers-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-fibers-l1-1-0.dll',
    'BINARY'),
   ('api-ms-win-core-libraryloader-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-libraryloader-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-interlocked-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-interlocked-l1-1-0.dll',
    'BINARY'),
   ('api-ms-win-core-processthreads-l1-1-1.dll',
    'C:\\Program Files\\Eclipse '
@@ -603,115 +647,52 @@
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-datetime-l1-1-0.dll',
    'BINARY'),
-  ('api-ms-win-core-file-l2-1-0.dll',
+  ('api-ms-win-core-processthreads-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-file-l2-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-console-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-console-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-fibers-l1-1-1.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-fibers-l1-1-1.dll',
-   'BINARY'),
-  ('api-ms-win-core-namedpipe-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-namedpipe-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-rtlsupport-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-rtlsupport-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-kernel32-legacy-l1-1-1.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-kernel32-legacy-l1-1-1.dll',
-   'BINARY'),
-  ('api-ms-win-core-localization-l1-2-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-localization-l1-2-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-debug-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-debug-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-synch-l1-2-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-synch-l1-2-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-string-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-string-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-heap-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-heap-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-sysinfo-l1-2-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-sysinfo-l1-2-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-fibers-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-fibers-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-synch-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-synch-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-errorhandling-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-errorhandling-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-interlocked-l1-1-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-interlocked-l1-1-0.dll',
-   'BINARY'),
-  ('api-ms-win-core-file-l1-2-0.dll',
-   'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-file-l1-2-0.dll',
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-processthreads-l1-1-0.dll',
    'BINARY'),
   ('api-ms-win-core-timezone-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
    'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-timezone-l1-1-0.dll',
    'BINARY'),
-  ('api-ms-win-core-sysinfo-l1-1-0.dll',
+  ('api-ms-win-core-debug-l1-1-0.dll',
    'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-sysinfo-l1-1-0.dll',
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-debug-l1-1-0.dll',
    'BINARY'),
-  ('api-ms-win-core-profile-l1-1-0.dll',
+  ('api-ms-win-core-localization-l1-2-0.dll',
    'C:\\Program Files\\Eclipse '
-   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-profile-l1-1-0.dll',
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-localization-l1-2-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-heap-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-heap-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-file-l2-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-file-l2-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-rtlsupport-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-rtlsupport-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-processenvironment-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-processenvironment-l1-1-0.dll',
+   'BINARY'),
+  ('api-ms-win-core-errorhandling-l1-1-0.dll',
+   'C:\\Program Files\\Eclipse '
+   'Adoptium\\jdk-21.0.11.10-hotspot\\bin\\api-ms-win-core-errorhandling-l1-1-0.dll',
    'BINARY')],
  [],
  [],
  [('base_library.zip',
    'C:\\Users\\andre\\Documents\\antigravity\\excited-newton\\build\\LiveFreeBrasil\\base_library.zip',
    'DATA')],
- [('functools', 'C:\\Program Files\\Python314\\Lib\\functools.py', 'PYMODULE'),
-  ('ntpath', 'C:\\Program Files\\Python314\\Lib\\ntpath.py', 'PYMODULE'),
+ [('copyreg', 'C:\\Program Files\\Python314\\Lib\\copyreg.py', 'PYMODULE'),
+  ('functools', 'C:\\Program Files\\Python314\\Lib\\functools.py', 'PYMODULE'),
+  ('weakref', 'C:\\Program Files\\Python314\\Lib\\weakref.py', 'PYMODULE'),
+  ('io', 'C:\\Program Files\\Python314\\Lib\\io.py', 'PYMODULE'),
   ('stat', 'C:\\Program Files\\Python314\\Lib\\stat.py', 'PYMODULE'),
-  ('heapq', 'C:\\Program Files\\Python314\\Lib\\heapq.py', 'PYMODULE'),
-  ('_collections_abc',
-   'C:\\Program Files\\Python314\\Lib\\_collections_abc.py',
-   'PYMODULE'),
-  ('reprlib', 'C:\\Program Files\\Python314\\Lib\\reprlib.py', 'PYMODULE'),
-  ('copyreg', 'C:\\Program Files\\Python314\\Lib\\copyreg.py', 'PYMODULE'),
-  ('keyword', 'C:\\Program Files\\Python314\\Lib\\keyword.py', 'PYMODULE'),
-  ('sre_compile',
-   'C:\\Program Files\\Python314\\Lib\\sre_compile.py',
-   'PYMODULE'),
-  ('_weakrefset',
-   'C:\\Program Files\\Python314\\Lib\\_weakrefset.py',
-   'PYMODULE'),
-  ('linecache', 'C:\\Program Files\\Python314\\Lib\\linecache.py', 'PYMODULE'),
-  ('genericpath',
-   'C:\\Program Files\\Python314\\Lib\\genericpath.py',
-   'PYMODULE'),
-  ('enum', 'C:\\Program Files\\Python314\\Lib\\enum.py', 'PYMODULE'),
-  ('codecs', 'C:\\Program Files\\Python314\\Lib\\codecs.py', 'PYMODULE'),
-  ('operator', 'C:\\Program Files\\Python314\\Lib\\operator.py', 'PYMODULE'),
-  ('traceback', 'C:\\Program Files\\Python314\\Lib\\traceback.py', 'PYMODULE'),
   ('re._parser',
    'C:\\Program Files\\Python314\\Lib\\re\\_parser.py',
    'PYMODULE'),
@@ -725,6 +706,9 @@
    'C:\\Program Files\\Python314\\Lib\\re\\_casefix.py',
    'PYMODULE'),
   ('re', 'C:\\Program Files\\Python314\\Lib\\re\\__init__.py', 'PYMODULE'),
+  ('abc', 'C:\\Program Files\\Python314\\Lib\\abc.py', 'PYMODULE'),
+  ('linecache', 'C:\\Program Files\\Python314\\Lib\\linecache.py', 'PYMODULE'),
+  ('sre_parse', 'C:\\Program Files\\Python314\\Lib\\sre_parse.py', 'PYMODULE'),
   ('encodings.zlib_codec',
    'C:\\Program Files\\Python314\\Lib\\encodings\\zlib_codec.py',
    'PYMODULE'),
@@ -1094,18 +1078,34 @@
   ('encodings',
    'C:\\Program Files\\Python314\\Lib\\encodings\\__init__.py',
    'PYMODULE'),
-  ('warnings', 'C:\\Program Files\\Python314\\Lib\\warnings.py', 'PYMODULE'),
-  ('sre_parse', 'C:\\Program Files\\Python314\\Lib\\sre_parse.py', 'PYMODULE'),
+  ('_collections_abc',
+   'C:\\Program Files\\Python314\\Lib\\_collections_abc.py',
+   'PYMODULE'),
+  ('posixpath', 'C:\\Program Files\\Python314\\Lib\\posixpath.py', 'PYMODULE'),
+  ('operator', 'C:\\Program Files\\Python314\\Lib\\operator.py', 'PYMODULE'),
   ('sre_constants',
    'C:\\Program Files\\Python314\\Lib\\sre_constants.py',
+   'PYMODULE'),
+  ('sre_compile',
+   'C:\\Program Files\\Python314\\Lib\\sre_compile.py',
+   'PYMODULE'),
+  ('reprlib', 'C:\\Program Files\\Python314\\Lib\\reprlib.py', 'PYMODULE'),
+  ('ntpath', 'C:\\Program Files\\Python314\\Lib\\ntpath.py', 'PYMODULE'),
+  ('enum', 'C:\\Program Files\\Python314\\Lib\\enum.py', 'PYMODULE'),
+  ('warnings', 'C:\\Program Files\\Python314\\Lib\\warnings.py', 'PYMODULE'),
+  ('traceback', 'C:\\Program Files\\Python314\\Lib\\traceback.py', 'PYMODULE'),
+  ('codecs', 'C:\\Program Files\\Python314\\Lib\\codecs.py', 'PYMODULE'),
+  ('types', 'C:\\Program Files\\Python314\\Lib\\types.py', 'PYMODULE'),
+  ('_weakrefset',
+   'C:\\Program Files\\Python314\\Lib\\_weakrefset.py',
+   'PYMODULE'),
+  ('heapq', 'C:\\Program Files\\Python314\\Lib\\heapq.py', 'PYMODULE'),
+  ('genericpath',
+   'C:\\Program Files\\Python314\\Lib\\genericpath.py',
    'PYMODULE'),
   ('collections',
    'C:\\Program Files\\Python314\\Lib\\collections\\__init__.py',
    'PYMODULE'),
-  ('posixpath', 'C:\\Program Files\\Python314\\Lib\\posixpath.py', 'PYMODULE'),
-  ('weakref', 'C:\\Program Files\\Python314\\Lib\\weakref.py', 'PYMODULE'),
   ('locale', 'C:\\Program Files\\Python314\\Lib\\locale.py', 'PYMODULE'),
-  ('types', 'C:\\Program Files\\Python314\\Lib\\types.py', 'PYMODULE'),
-  ('io', 'C:\\Program Files\\Python314\\Lib\\io.py', 'PYMODULE'),
-  ('abc', 'C:\\Program Files\\Python314\\Lib\\abc.py', 'PYMODULE'),
+  ('keyword', 'C:\\Program Files\\Python314\\Lib\\keyword.py', 'PYMODULE'),
   ('os', 'C:\\Program Files\\Python314\\Lib\\os.py', 'PYMODULE')])
