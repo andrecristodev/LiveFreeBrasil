@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# LiveFreeBrasil cache local
+.livefreebrasil_cache.json
+.golive_bypass_cache.json
+
+# Windows shortcuts and temp files
+*.lnk
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
