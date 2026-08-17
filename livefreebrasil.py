@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
+Suporte a Rotas de Baixa Latência da América Latina (Argentina, Chile, Uruguai, etc.)
 Criador: @tadalas no Discord
 """
 
@@ -20,7 +21,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 CREATOR = "@tadalas"
 CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
 
@@ -32,21 +33,42 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Pool de nós internacionais candidatos para validação profunda
+# Pool de nós prioritários da América Latina e Globais
 RELAYS_CANDIDATES = [
-    ("socks5", "127.0.0.1", 9050, "Tor Local"),
-    ("socks5", "127.0.0.1", 9150, "Tor Local"),
-    ("socks5", "144.172.101.188", 1080, "Estados Unidos"),
-    ("socks5", "72.195.34.40", 4145, "Estados Unidos"),
-    ("socks5", "98.162.25.29", 4145, "Estados Unidos"),
-    ("socks5", "184.178.172.28", 4145, "Estados Unidos"),
-    ("socks5", "192.252.208.70", 14282, "Estados Unidos"),
-    ("socks5", "68.71.249.152", 4145, "Canadá"),
-    ("socks5", "98.188.47.112", 4145, "Estados Unidos"),
-    ("socks5", "72.210.252.134", 46164, "Estados Unidos"),
-    ("socks5", "174.70.1.205", 4145, "Estados Unidos"),
-    ("socks5", "68.71.249.154", 4145, "Canadá"),
+    # América Latina (Argentina, Chile, Colômbia, Uruguai, México)
+    ("socks5", "200.50.249.224", 1080, "Argentina", True),
+    ("socks5", "170.245.50.65", 1080, "Chile", True),
+    ("socks5", "190.61.43.122", 1080, "Colômbia", True),
+    ("socks5", "190.61.61.210", 1080, "Colômbia", True),
+    ("socks5", "190.2.209.62", 1080, "Colômbia", True),
+    ("socks5", "190.14.249.111", 1080, "Colômbia", True),
+    ("socks5", "201.165.172.14", 1080, "México", True),
+    
+    # Tor Local
+    ("socks5", "127.0.0.1", 9050, "Tor Local", False),
+    ("socks5", "127.0.0.1", 9150, "Tor Local", False),
+    
+    # Nós Internacionais de Alta Fidelidade
+    ("socks5", "144.172.101.188", 1080, "Estados Unidos", False),
+    ("socks5", "72.195.34.40", 4145, "Estados Unidos", False),
+    ("socks5", "98.162.25.29", 4145, "Estados Unidos", False),
+    ("socks5", "184.178.172.28", 4145, "Estados Unidos", False),
+    ("socks5", "68.71.249.152", 4145, "Canadá", False),
+    ("socks5", "98.188.47.112", 4145, "Estados Unidos", False),
 ]
+
+# Códigos de países da América Latina
+LATAM_CODES = {
+    "AR": "Argentina",
+    "CL": "Chile",
+    "UY": "Uruguai",
+    "PY": "Paraguai",
+    "CO": "Colômbia",
+    "PE": "Peru",
+    "MX": "México",
+    "EC": "Equador",
+    "BO": "Bolívia"
+}
 
 # Cores ANSI
 class Color:
@@ -71,6 +93,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
+{Color.YELLOW}  Suporte a Rotas da América Latina (Argentina, Chile, Uruguai...)
 {Color.CYAN}  Criado por: {Color.WHITE}{CREATOR} {Color.CYAN}no Discord
 {Color.GREEN}=================================================================={Color.RESET}
 """
@@ -225,7 +248,6 @@ def validate_socks5_deep(host: str, port: int, timeout: float = 1.2) -> Optional
         reply = ss.recv(256)
         ss.close()
         
-        # Se recebeu resposta TLS válida do gateway
         if reply:
             return round((time.time() - t0) * 1000)
     except Exception:
@@ -243,11 +265,11 @@ def check_tor_local() -> Optional[str]:
 
 
 def fetch_online_socks5_candidates() -> List[Tuple[str, int]]:
-    """Baixa lista atualizada de proxies SOCKS5 públicas online em caso de fallback."""
+    """Baixa lista atualizada de proxies SOCKS5 públicas online."""
     found = []
     urls = [
-        "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=1500&country=all",
         "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+        "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
         "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt"
     ]
     
@@ -256,7 +278,7 @@ def fetch_online_socks5_candidates() -> List[Tuple[str, int]]:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=2.0) as resp:
                 lines = resp.read().decode("utf-8", errors="ignore").splitlines()
-                for line in lines[:80]:
+                for line in lines[:100]:
                     line = line.strip()
                     if ":" in line and not line.startswith("#"):
                         p = line.split(":")
@@ -267,13 +289,18 @@ def fetch_online_socks5_candidates() -> List[Tuple[str, int]]:
     return found
 
 
-def find_verified_gateway_proxy() -> Optional[Dict]:
+def find_verified_gateway_proxy(prefer_latam: bool = False) -> Optional[Dict]:
     """Testa concorrentemente nós com validação profunda de TLS no Gateway do Discord."""
-    # 1. Primeiro testa os nós da lista pré-validada
+    candidates = list(RELAYS_CANDIDATES)
+    
+    # Se preferir América Latina, coloca os nós latam no topo
+    if prefer_latam:
+        candidates.sort(key=lambda x: (not x[4]))
+
     tested = []
     
     def worker(entry):
-        proto, host, port, country = entry
+        proto, host, port, country, is_latam = entry
         ms = validate_socks5_deep(host, port, timeout=1.2)
         if ms is not None:
             return {
@@ -282,24 +309,34 @@ def find_verified_gateway_proxy() -> Optional[Dict]:
                 "port": port,
                 "country": country,
                 "latency": ms,
+                "is_latam": is_latam,
                 "url": f"{proto}://{host}:{port}"
             }
         return None
 
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        futures = [executor.submit(worker, item) for item in RELAYS_CANDIDATES]
+    with ThreadPoolExecutor(max_workers=25) as executor:
+        futures = [executor.submit(worker, item) for item in candidates]
         for f in as_completed(futures):
             res = f.result()
             if res:
                 tested.append(res)
-                if len(tested) >= 2:
+                if prefer_latam and res["is_latam"]:
+                    return res
+                if len(tested) >= 3:
                     break
 
     if tested:
+        # Se preferir América Latina e houver algum testado, pega o de menor ping
+        if prefer_latam:
+            latam_found = [t for t in tested if t["is_latam"]]
+            if latam_found:
+                latam_found.sort(key=lambda x: x["latency"])
+                return latam_found[0]
+                
         tested.sort(key=lambda x: x["latency"])
         return tested[0]
 
-    # 2. Se nenhuma da lista local passou, busca e testa lista online
+    # Fallback para busca online
     log_info("Buscando novos nós SOCKS5 com suporte a WebSocket...")
     online = fetch_online_socks5_candidates()
     
@@ -313,6 +350,7 @@ def find_verified_gateway_proxy() -> Optional[Dict]:
                 "port": port,
                 "country": "Internacional",
                 "latency": ms,
+                "is_latam": False,
                 "url": f"socks5://{host}:{port}"
             }
         return None
@@ -435,6 +473,7 @@ def parse_args():
     )
     
     parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9050)")
+    parser.add_argument("-l", "--latam", action="store_true", help="Prioriza nós da América Latina (Argentina, Chile, Uruguai, etc.)")
     parser.add_argument("-t", "--tor", action="store_true", help="Força Tor local (127.0.0.1:9050)")
     parser.add_argument("-a", "--auto", action="store_true", help="Modo 100% automático e verificado")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
@@ -450,30 +489,33 @@ def parse_args():
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     target_name = installs[0]["name"] if installs else "Discord"
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Gateway Verificado){Color.RESET} -> Abre o {target_name} com Live/Câmera liberadas")
-    print(f"  [2] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Limpa configurações e abre sem proxy")
-    print(f"  [3] {Color.CYAN}Usar Tor Local (Recomendado){Color.RESET} (127.0.0.1:9050 ou 9150)")
-    print(f"  [4] {Color.YELLOW}Informar Proxy Manualmente{Color.RESET}")
-    print(f"  [5] {Color.DIM}Sair{Color.RESET}")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Automático (Gateway Verificado){Color.RESET} -> Menor ping global")
+    print(f"  [2] {Color.YELLOW}{Color.BOLD}Ativar Bypass América Latina (Argentina/Chile/etc.){Color.RESET} -> Menor latência")
+    print(f"  [3] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
+    print(f"  [4] {Color.CYAN}Usar Tor Local (Recomendado){Color.RESET} (127.0.0.1:9050 ou 9150)")
+    print(f"  [5] {Color.MAGENTA}Informar Proxy Manualmente{Color.RESET}")
+    print(f"  [6] {Color.DIM}Sair{Color.RESET}")
     
     while True:
         try:
-            choice = input(f"\n{Color.CYAN}Opção [1-5] (padrão: 1): {Color.RESET}").strip()
+            choice = input(f"\n{Color.CYAN}Opção [1-6] (padrão: 1): {Color.RESET}").strip()
             if not choice or choice == "1":
                 return "auto"
             elif choice == "2":
-                return "disable"
+                return "latam"
             elif choice == "3":
-                return "tor"
+                return "disable"
             elif choice == "4":
-                return "manual"
+                return "tor"
             elif choice == "5":
+                return "manual"
+            elif choice == "6":
                 sys.exit(0)
         except ValueError:
             pass
 
 
-def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool) -> Optional[Dict]:
+def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool, prefer_latam: bool = False) -> Optional[Dict]:
     """Resolve uma proxy 100% compatível com o Gateway WebSocket do Discord."""
     # 1. Manual
     if manual_proxy:
@@ -489,21 +531,24 @@ def resolve_proxy_reliable(manual_proxy: Optional[str], force_tor: bool) -> Opti
         log_info("Dica: Abra o 'Tor Browser' em segundo plano para máxima estabilidade!")
         return None
 
-    # 3. Tor local automático (se o Tor Browser estiver aberto, usa com prioridade máxima)
-    tor_url = check_tor_local()
-    if tor_url:
-        log_success(f"Tor detectado e verificado: {Color.BOLD}{tor_url}{Color.RESET}")
-        return {"url": tor_url, "country": "Rede Tor", "latency": 10}
+    # 3. Tor local automático (se não pediu América Latina explicitamente e o Tor Browser estiver aberto)
+    if not prefer_latam:
+        tor_url = check_tor_local()
+        if tor_url:
+            log_success(f"Tor detectado e verificado: {Color.BOLD}{tor_url}{Color.RESET}")
+            return {"url": tor_url, "country": "Rede Tor", "latency": 10}
 
     # 4. Cache recente validado com Gateway TLS
-    cached = load_from_cache()
-    if cached:
-        log_success(f"Rota validada do cache: {Color.BOLD}{cached['url']}{Color.RESET} ({cached.get('country', 'Internacional')}, {cached['latency']}ms)")
-        return cached
+    if not prefer_latam:
+        cached = load_from_cache()
+        if cached:
+            log_success(f"Rota validada do cache: {Color.BOLD}{cached['url']}{Color.RESET} ({cached.get('country', 'Internacional')}, {cached['latency']}ms)")
+            return cached
 
     # 5. Busca proxy SOCKS5 com validação profunda no Gateway TLS
-    log_info("Validando rota SOCKS5 com suporte a WebSocket no Gateway do Discord...")
-    found = find_verified_gateway_proxy()
+    tipo = "América Latina (Argentina, Chile, etc.)" if prefer_latam else "Gateway do Discord"
+    log_info(f"Validando rota SOCKS5 ({tipo})...")
+    found = find_verified_gateway_proxy(prefer_latam=prefer_latam)
     if found:
         log_success(f"Rota verificada com sucesso: {Color.BOLD}{found['url']}{Color.RESET} [{found.get('country', 'Internacional')}] ({found['latency']}ms)")
         save_to_cache(found)
@@ -524,9 +569,9 @@ def main():
         return
 
     if args.list_proxies:
-        p = find_verified_gateway_proxy()
+        p = find_verified_gateway_proxy(prefer_latam=args.latam)
         if p:
-            log_success(f"Melhor proxy ativa com Gateway TLS: {p['url']} ({p['country']}) - Ping: {p['latency']}ms")
+            log_success(f"Melhor proxy ativa: {p['url']} ({p['country']}) - Ping: {p['latency']}ms")
         return
 
     # 1. Localiza Discord
@@ -545,13 +590,16 @@ def main():
 
     # 2. Modo de execução
     force_tor = args.tor
+    prefer_latam = args.latam
     manual_proxy_url = args.proxy
 
-    if not args.auto and not args.proxy and not args.tor and not args.kill:
+    if not args.auto and not args.proxy and not args.tor and not args.latam and not args.kill:
         action = interactive_menu(installs)
         if action == "disable":
             disable_bypass()
             return
+        elif action == "latam":
+            prefer_latam = True
         elif action == "tor":
             force_tor = True
         elif action == "manual":
@@ -563,7 +611,7 @@ def main():
         time.sleep(0.3)
 
     # 4. Resolve proxy com garantia de Gateway TLS
-    proxy_data = resolve_proxy_reliable(manual_proxy_url, force_tor=force_tor)
+    proxy_data = resolve_proxy_reliable(manual_proxy_url, force_tor=force_tor, prefer_latam=prefer_latam)
     
     if not proxy_data:
         log_error("Não foi possível validar um nó SOCKS5 compatível com o Gateway do Discord.")
@@ -573,7 +621,7 @@ def main():
     # 5. Inicia o Discord
     print("-" * 66, flush=True)
     log_info(f"Discord: {Color.BOLD}{selected_install['name']}{Color.RESET}")
-    log_info(f"Rota Internacional (Gateway TLS OK): {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} ({proxy_data.get('country', 'Internacional')})")
+    log_info(f"Rota ({proxy_data.get('country', 'Internacional')}): {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} (Ping: {proxy_data['latency']}ms)")
     print("-" * 66, flush=True)
     
     launch_discord(selected_install, proxy_data["url"])
