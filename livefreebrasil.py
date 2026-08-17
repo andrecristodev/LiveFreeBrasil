@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Gerenciador Inteligente do Tor Browser com Autoinstalação e Validação de Tráfego Pré-Boot
+Modo Tor Browser Minimizado / Oculto com Auto-Conexão e Detecção Inteligente
 Criador: @tadalas no Discord
 """
 
@@ -19,12 +19,10 @@ import subprocess
 import argparse
 import urllib.request
 import urllib.error
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 CREATOR = "@tadalas"
-CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
 
 # Configura encoding de saída para terminais Windows
 if sys.platform == "win32":
@@ -33,18 +31,6 @@ if sys.platform == "win32":
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
         pass
-
-# Pool de nós prioritários caso o usuário escolha modo proxies públicas
-RELAYS_CANDIDATES = [
-    ("socks5", "127.0.0.1", 9150, "Tor Browser Local", False),
-    ("socks5", "127.0.0.1", 9050, "Tor Service Local", False),
-    ("socks5", "200.50.249.224", 1080, "Argentina", True),
-    ("socks5", "170.245.50.65", 1080, "Chile", True),
-    ("socks5", "190.61.43.122", 1080, "Colômbia", True),
-    ("socks5", "144.172.101.188", 1080, "Estados Unidos", False),
-    ("socks5", "72.195.34.40", 4145, "Estados Unidos", False),
-    ("socks5", "68.71.249.152", 4145, "Canadá", False),
-]
 
 # Cores ANSI
 class Color:
@@ -69,7 +55,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.CYAN}  🧅 Gerenciador do Tor Browser com Autoinstalação e Validação Pré-Boot
+{Color.CYAN}  🧅 Tor Integrado Minimizado com Auto-Connect Automático
 {Color.YELLOW}  Criado por: {Color.WHITE}{CREATOR} {Color.YELLOW}no Discord
 {Color.GREEN}=================================================================={Color.RESET}
 """
@@ -89,7 +75,7 @@ def log_error(msg: str):
 
 
 # -----------------------------------------------------------------------------
-# DETECÇÃO, INSTALAÇÃO E VALIDAÇÃO DO TOR BROWSER
+# DETECÇÃO, CONFIGURAÇÃO E AUTO-START MINIMIZADO DO TOR BROWSER
 # -----------------------------------------------------------------------------
 
 def locate_tor_browser_executable() -> Optional[str]:
@@ -108,7 +94,27 @@ def locate_tor_browser_executable() -> Optional[str]:
     return None
 
 
-def test_tor_socks_traffic(port: int = 9150, timeout: float = 1.5) -> bool:
+def configure_tor_autoconnect(tor_exe: str):
+    """Configura o Tor Browser para conectar 100% automático sem perguntar."""
+    try:
+        base_browser = os.path.dirname(tor_exe)
+        profile_dir = os.path.join(base_browser, "TorBrowser", "Data", "Browser", "profile.default")
+        if os.path.exists(profile_dir):
+            user_js_path = os.path.join(profile_dir, "user.js")
+            prefs = [
+                'user_pref("torlauncher.prompt_at_startup", false);',
+                'user_pref("torlauncher.auto_connect", true);',
+                'user_pref("extensions.torlauncher.prompt_at_startup", false);',
+                'user_pref("extensions.torlauncher.auto_connect", true);',
+                'user_pref("browser.startup.page", 0);'
+            ]
+            with open(user_js_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(prefs) + "\n")
+    except Exception:
+        pass
+
+
+def test_tor_socks_traffic(port: int = 9150, timeout: float = 1.0) -> bool:
     """Verifica se o Tor está conectado e passando tráfego HTTPS real com sucesso."""
     try:
         s = socket.create_connection(("127.0.0.1", port), timeout=timeout)
@@ -137,7 +143,7 @@ def test_tor_socks_traffic(port: int = 9150, timeout: float = 1.5) -> bool:
 
 def install_tor_via_winget() -> bool:
     """Instala o Tor Browser via winget de forma silenciosa."""
-    log_info("Instalando Tor Browser oficial automaticamente via winget...")
+    log_info("Instalando Tor Browser oficial automaticamente...")
     try:
         subprocess.run(
             ["winget", "install", "-e", "--id", "TorProject.TorBrowser", "--accept-package-agreements", "--accept-source-agreements", "--silent"],
@@ -146,16 +152,16 @@ def install_tor_via_winget() -> bool:
         log_success("Tor Browser instalado com sucesso!")
         return True
     except Exception as e:
-        log_error(f"Falha na instalação automática via winget: {e}")
+        log_error(f"Falha na instalação automática: {e}")
         return False
 
 
-def launch_and_ensure_tor() -> Optional[str]:
-    """Garante que o Tor Browser está aberto, conectado e com tráfego HTTPS 100% pronto."""
-    # 1. Checa se alguma porta SOCKS do Tor já está com tráfego 100% ativo
+def launch_tor_minimized_and_wait() -> Optional[str]:
+    """Inicia o Tor Browser minimizado e aguarda o túnel SOCKS5 estar 100% pronto."""
+    # 1. Checa se já está rodando e com tráfego ativo
     for port in [9150, 9050]:
-        if test_tor_socks_traffic(port, timeout=1.0):
-            log_success(f"Tor detectado e com tráfego liberado: {Color.BOLD}socks5://127.0.0.1:{port}{Color.RESET}")
+        if test_tor_socks_traffic(port, timeout=0.5):
+            log_success(f"Tor detectado e pronto: {Color.BOLD}socks5://127.0.0.1:{port}{Color.RESET}")
             return f"socks5://127.0.0.1:{port}"
 
     # 2. Localiza ou instala o Tor Browser
@@ -164,29 +170,37 @@ def launch_and_ensure_tor() -> Optional[str]:
         if install_tor_via_winget():
             tor_exe = locate_tor_browser_executable()
 
-    # 3. Abre o Tor Browser se encontrado
-    if tor_exe:
-        log_info("Iniciando Tor Browser...")
+    if not tor_exe:
+        log_error("Tor Browser não encontrado no sistema.")
+        return None
+
+    # 3. Configura auto-conexão e inicia minimizado
+    configure_tor_autoconnect(tor_exe)
+    log_info("Iniciando Tor Browser minimizado em segundo plano...")
+    try:
+        ps_cmd = f"Start-Process '{tor_exe}' -WindowStyle Minimized"
+        subprocess.run(["powershell", "-WindowStyle", "Hidden", "-Command", ps_cmd], check=False)
+    except Exception:
         try:
             DETACHED_PROCESS = 0x00000008
             subprocess.Popen([tor_exe], creationflags=DETACHED_PROCESS)
         except Exception:
             pass
 
-    # 4. Aguarda a conexão do Tor ser estabelecida (com feedback visual para evitar ERR_TIMED_OUT)
-    print(f"{Color.CYAN}[*] Estabelecendo circuito seguro com a rede Tor...{Color.RESET}")
+    # 4. Aguarda conexão do Tor
+    print(f"{Color.CYAN}[*] Estabelecendo conexão com a rede Tor...{Color.RESET}")
     for i in range(25):
         time.sleep(1.0)
         for port in [9150, 9050]:
             if test_tor_socks_traffic(port, timeout=0.8):
-                log_success(f"Conexão do Tor pronta e verificada: {Color.BOLD}socks5://127.0.0.1:{port}{Color.RESET}")
+                log_success(f"Tor conectado e validado com sucesso: {Color.BOLD}socks5://127.0.0.1:{port}{Color.RESET}")
                 return f"socks5://127.0.0.1:{port}"
-        sys.stdout.write(f"\r{Color.YELLOW}[*] Aguardando conexão do Tor ({i+1}s/25s)... (Se abriu a janela do Tor, clique em 'Conectar'){Color.RESET}")
+        sys.stdout.write(f"\r{Color.YELLOW}[*] Conectando ({i+1}s/25s)... (Se for a 1ª vez, marque 'Conectar automaticamente' na janela do Tor){Color.RESET}")
         sys.stdout.flush()
     print("", flush=True)
 
-    log_error("O Tor não completou a conexão no tempo limite.")
-    log_info("Dica: Clique no botão 'Conectar' na janela do Tor Browser e tente novamente!")
+    log_error("O Tor demorou para responder.")
+    log_info("Dica: Clique em 'Conectar' no Tor Browser e marque a caixinha 'Conectar automaticamente'!")
     return None
 
 
@@ -375,8 +389,8 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter
     )
     
-    parser.add_argument("-t", "--tor", action="store_true", help="Usa o Tor Browser com validação pré-boot")
-    parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9050)")
+    parser.add_argument("-t", "--tor", action="store_true", help="Usa o Tor Browser com auto-start minimizado")
+    parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9150)")
     parser.add_argument("-a", "--auto", action="store_true", help="Modo 100% automático")
     parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache gráfico da GPU do Discord")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
@@ -391,8 +405,8 @@ def parse_args():
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     target_name = installs[0]["name"] if installs else "Discord"
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Tor Browser - 100% Estável para Streams){Color.RESET}")
-    print(f"      {Color.DIM}↳ Autoinstala, abre e valida a conexão do Tor antes do Discord. Zero quedas.{Color.RESET}")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Tor Minimizado - Auto-Connect){Color.RESET}")
+    print(f"      {Color.DIM}↳ Conecta automaticamente em segundo plano. 100% estável para Streams & Câmera.{Color.RESET}")
     print(f"  [2] {Color.RED}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
     print(f"  [3] {Color.MAGENTA}Limpar Cache Gráfico (Reparar Tela Preta){Color.RESET}")
     print(f"  [4] {Color.WHITE}Informar Proxy Manualmente{Color.RESET}")
@@ -470,18 +484,18 @@ def main():
         kill_discord_processes()
         time.sleep(0.3)
 
-    # 4. Resolve e valida a conexão antes do Discord
+    # 4. Resolve e valida conexão do Tor minimizado
     proxy_url = None
-    country_label = "Tor Browser"
+    country_label = "Tor Browser (Minimizado)"
     
     if manual_proxy_url:
         proxy_url = manual_proxy_url if "://" in manual_proxy_url else f"socks5://{manual_proxy_url}"
         country_label = "Manual"
     else:
-        proxy_url = launch_and_ensure_tor()
+        proxy_url = launch_tor_minimized_and_wait()
 
     if not proxy_url:
-        log_error("Não foi possível validar a conexão segura.")
+        log_error("Não foi possível estabelecer a conexão segura.")
         sys.exit(1)
 
     # 5. Inicia o Discord
