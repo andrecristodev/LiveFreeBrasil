@@ -19,7 +19,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CREATOR = "@tadalas"
 CACHE_FILE = os.path.join(os.path.expanduser("~"), ".livefreebrasil_cache.json")
 
@@ -73,7 +73,7 @@ def log_error(msg: str):
 
 
 # -----------------------------------------------------------------------------
-# DETECÇÃO DE INSTALAÇÕES DO DISCORD
+# DETECÇÃO AUTOMÁTICA DE INSTALAÇÕES DO DISCORD
 # -----------------------------------------------------------------------------
 
 def find_discord_installations() -> List[Dict[str, str]]:
@@ -158,7 +158,7 @@ def find_discord_installations() -> List[Dict[str, str]]:
 
 
 def kill_discord_processes():
-    """Finaliza processos em execução do Discord para permitir reinício limpo com proxy."""
+    """Finaliza processos em execução do Discord para permitir reinício limpo."""
     if sys.platform == "win32":
         targets = ["Discord.exe", "DiscordCanary.exe", "DiscordPTB.exe", "DiscordDevelopment.exe", "Vesktop.exe"]
         for target in targets:
@@ -336,10 +336,8 @@ def find_working_non_br_proxy(max_workers: int = 30, candidate_limit: int = 150)
         log_error("Nenhuma proxy pública respondeu com sucesso ao handshake do Discord.")
         return None
         
-    # Ordena por menor latência
     tested_working.sort(key=lambda x: x["latency"])
     
-    # Filtra por país != BR
     log_info("Identificando país das melhores proxies...")
     for p in tested_working:
         geo = get_ip_country(p["host"])
@@ -394,25 +392,43 @@ def load_from_cache() -> Optional[Dict]:
     return None
 
 
+def clear_cache():
+    """Remove o arquivo de cache de proxies."""
+    if os.path.exists(CACHE_FILE):
+        try:
+            os.remove(CACHE_FILE)
+        except Exception:
+            pass
+
+
 # -----------------------------------------------------------------------------
-# LAUNCH DO DISCORD
+# LAUNCH DO DISCORD (COM E SEM PROXY)
 # -----------------------------------------------------------------------------
 
-def launch_discord(install: Dict[str, str], proxy_url: str):
-    """Executa o Discord com os argumentos de proxy necessários."""
-    proxy_arg = f'--proxy-server={proxy_url}'
-    
+def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
+    """Executa o Discord com ou sem proxy."""
     cmd = []
-    if sys.platform == "win32":
-        if install["type"] == "updater":
-            cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", proxy_arg]
+    if proxy_url:
+        proxy_arg = f'--proxy-server={proxy_url}'
+        if sys.platform == "win32":
+            if install["type"] == "updater":
+                cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", proxy_arg]
+            else:
+                cmd = [install["path"], proxy_arg]
         else:
             cmd = [install["path"], proxy_arg]
+        log_info(f"Iniciando {Color.BOLD}{install['name']}{Color.RESET} com proxy...")
     else:
-        cmd = [install["path"], proxy_arg]
+        # Modo normal (sem proxy)
+        if sys.platform == "win32":
+            if install["type"] == "updater":
+                cmd = [install["path"], "--processStart", f"{install['folder']}.exe"]
+            else:
+                cmd = [install["path"]]
+        else:
+            cmd = [install["path"]]
+        log_info(f"Iniciando {Color.BOLD}{install['name']}{Color.RESET} em modo NORMAL (conexão direta)...")
         
-    log_info(f"Executando: {Color.DIM}{' '.join(cmd)}{Color.RESET}")
-    
     try:
         if sys.platform == "win32":
             DETACHED_PROCESS = 0x00000008
@@ -420,9 +436,32 @@ def launch_discord(install: Dict[str, str], proxy_url: str):
         else:
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         
-        log_success(f"{install['name']} iniciado com sucesso através da proxy!")
+        if proxy_url:
+            log_success(f"{install['name']} iniciado com sucesso através da proxy!")
+        else:
+            log_success(f"{install['name']} iniciado normalmente sem proxy!")
     except Exception as e:
         log_error(f"Falha ao iniciar o Discord: {e}")
+
+
+def disable_bypass():
+    """Desativa o bypass, limpa o cache e reinicia o Discord de forma padrão/normal."""
+    log_warning("Desativando LiveFreeBrasil e restaurando Discord normal...")
+    log_info("Encerrando instâncias ativas do Discord...")
+    kill_discord_processes()
+    time.sleep(1.0)
+    
+    log_info("Limpando cache de proxies...")
+    clear_cache()
+    
+    installs = find_discord_installations()
+    if installs:
+        target = installs[0]
+        launch_discord(target, proxy_url=None)
+        print(f"\n{Color.GREEN}{Color.BOLD}[✓] Bypass desativado com sucesso!{Color.RESET}")
+        print(f"{Color.WHITE}O Discord está rodando normalmente com a sua conexão direta padrão.{Color.RESET}\n")
+    else:
+        log_error("Nenhuma instalação do Discord encontrada para reiniciar.")
 
 
 # -----------------------------------------------------------------------------
@@ -448,7 +487,13 @@ def parse_args():
     parser.add_argument(
         "-a", "--auto",
         action="store_true",
-        help="Modo automático: detecta Tor, cache ou busca proxy pública sem perguntar"
+        help="Modo automático: detecta Discord e rota de proxy sem perguntas"
+    )
+    parser.add_argument(
+        "--disable", "--restore", "--normal",
+        dest="disable",
+        action="store_true",
+        help="Desativa o bypass, limpa cache e reinicia o Discord normalmente sem proxy"
     )
     parser.add_argument(
         "-k", "--kill",
@@ -479,69 +524,38 @@ def parse_args():
     return parser.parse_args()
 
 
-def interactive_menu(installs: List[Dict[str, str]]) -> Tuple[Dict[str, str], str, bool]:
-    """Menu interativo quando nenhuma flag específica foi passada."""
-    print(f"{Color.BOLD}1. Selecione a versão do Discord instalada:{Color.RESET}")
-    for idx, inst in enumerate(installs):
-        print(f"  [{idx + 1}] {Color.GREEN}{inst['name']}{Color.RESET} ({Color.DIM}{inst['path']}{Color.RESET})")
-    print(f"  [{len(installs) + 1}] Informar caminho personalizado...")
+def interactive_menu(installs: List[Dict[str, str]]) -> str:
+    """Menu principal intuitivo."""
+    target_name = installs[0]["name"] if installs else "Discord"
+    
+    print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (100% Automático){Color.RESET} -> Detecta proxy internacional e abre o {target_name}")
+    print(f"  [2] {Color.RED}{Color.BOLD}Desativar Bypass (Modo Normal){Color.RESET} -> Limpa configurações e abre o Discord sem proxy")
+    print(f"  [3] {Color.CYAN}Usar Tor Local{Color.RESET} (127.0.0.1:9050 ou 9150)")
+    print(f"  [4] {Color.YELLOW}Informar Proxy Manualmente{Color.RESET}")
+    print(f"  [5] {Color.DIM}Sair{Color.RESET}")
     
     while True:
         try:
-            choice = input(f"\n{Color.CYAN}Opção [1-{len(installs) + 1}] (padrão: 1): {Color.RESET}").strip()
-            if not choice:
-                selected_install = installs[0]
-                break
-            c_int = int(choice)
-            if 1 <= c_int <= len(installs):
-                selected_install = installs[c_int - 1]
-                break
-            elif c_int == len(installs) + 1:
-                custom_path = input("Digite o caminho completo para o executável do Discord: ").strip().strip('"')
-                if os.path.exists(custom_path):
-                    selected_install = {"name": "Discord Personalizado", "type": "direct", "path": custom_path, "folder": "Discord"}
-                    break
-                else:
-                    log_error("Caminho não encontrado. Tente novamente.")
+            choice = input(f"\n{Color.CYAN}Opção [1-5] (padrão: 1): {Color.RESET}").strip()
+            if not choice or choice == "1":
+                return "auto"
+            elif choice == "2":
+                return "disable"
+            elif choice == "3":
+                return "tor"
+            elif choice == "4":
+                return "manual"
+            elif choice == "5":
+                sys.exit(0)
             else:
                 log_error("Opção inválida.")
         except ValueError:
             log_error("Digite um número válido.")
 
-    print(f"\n{Color.BOLD}2. Escolha o método de conexão proxy:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}Automático{Color.RESET} (Tor local se ativo > Cache rápido > Proxies públicas gratuitas)")
-    print(f"  [2] {Color.CYAN}Tor Local{Color.RESET} (socks5://127.0.0.1:9050 ou 9150)")
-    print(f"  [3] {Color.YELLOW}Buscar Nova Proxy Pública Testada{Color.RESET} (Não-BR)")
-    print(f"  [4] {Color.MAGENTA}Digitar Proxy Manualmente{Color.RESET} (Ex: socks5://ip:porta ou http://ip:porta)")
 
-    while True:
-        try:
-            p_choice = input(f"\n{Color.CYAN}Opção [1-4] (padrão: 1): {Color.RESET}").strip()
-            if not p_choice or p_choice == "1":
-                proxy_mode = "auto"
-                break
-            elif p_choice == "2":
-                proxy_mode = "tor"
-                break
-            elif p_choice == "3":
-                proxy_mode = "public"
-                break
-            elif p_choice == "4":
-                proxy_mode = "manual"
-                break
-            else:
-                log_error("Opção inválida.")
-        except ValueError:
-            log_error("Digite um número válido.")
-
-    kill_choice = input(f"\n{Color.CYAN}Deseja encerrar instâncias anteriores do Discord? [S/n] (padrão: S): {Color.RESET}").strip().lower()
-    should_kill = kill_choice != "n"
-
-    return selected_install, proxy_mode, should_kill
-
-
-def resolve_proxy(proxy_arg: Optional[str], force_tor: bool, force_public: bool = False) -> Optional[Dict]:
-    """Obtém e valida a proxy de acordo com a estratégia solicitada."""
+def resolve_proxy(proxy_arg: Optional[str], force_tor: bool) -> Optional[Dict]:
+    """Obtém e valida a proxy de forma rápida e automática."""
     # 1. Proxy manual direta
     if proxy_arg:
         url = proxy_arg if "://" in proxy_arg else f"http://{proxy_arg}"
@@ -560,18 +574,17 @@ def resolve_proxy(proxy_arg: Optional[str], force_tor: bool, force_public: bool 
             log_info("Dica: Inicie o serviço 'tor.exe' ou abra o 'Tor Browser' antes de usar essa opção.")
             return None
 
-    # 3. Tenta Tor local silenciosamente se modo automático
-    if not force_public:
-        tor_url = check_tor_local()
-        if tor_url:
-            log_success(f"Tor local detectado automaticamente: {Color.BOLD}{tor_url}{Color.RESET}")
-            return {"url": tor_url, "country": "Rede Tor", "latency": 50}
+    # 3. Tenta Tor local automaticamente se disponível
+    tor_url = check_tor_local()
+    if tor_url:
+        log_success(f"Tor local detectado automaticamente: {Color.BOLD}{tor_url}{Color.RESET}")
+        return {"url": tor_url, "country": "Rede Tor", "latency": 50}
 
-        # 4. Tenta Cache recente
-        cached = load_from_cache()
-        if cached:
-            log_success(f"Proxy recente recuperada do cache: {Color.BOLD}{cached['url']}{Color.RESET} ({cached.get('country', 'Não-BR')}, {cached['latency']}ms)")
-            return cached
+    # 4. Tenta Cache recente
+    cached = load_from_cache()
+    if cached:
+        log_success(f"Proxy recuperada do cache: {Color.BOLD}{cached['url']}{Color.RESET} ({cached.get('country', 'Não-BR')}, {cached['latency']}ms)")
+        return cached
 
     # 5. Busca e testa proxies públicas
     log_info("Buscando proxy pública fora do Brasil com baixa latência...")
@@ -591,6 +604,11 @@ def main():
     print_banner()
     args = parse_args()
 
+    # Modo Desativar Bypass
+    if args.disable:
+        disable_bypass()
+        return
+
     # Modo apenas listar proxies
     if args.list_proxies:
         p = find_working_non_br_proxy(candidate_limit=150)
@@ -598,7 +616,7 @@ def main():
             log_success(f"Melhor proxy ativa: {p['url']} - País: {p.get('country')} - Latência: {p['latency']}ms")
         return
 
-    # 1. Localiza Discord
+    # 1. Localiza Discord automaticamente
     installs = find_discord_installations()
     selected_install = None
 
@@ -608,7 +626,9 @@ def main():
         else:
             log_error(f"O caminho do Discord fornecido não existe: {args.discord}")
             sys.exit(1)
-    elif not installs:
+    elif installs:
+        selected_install = installs[0]
+    else:
         log_error("Nenhuma instalação do Discord foi detectada automaticamente.")
         custom = input("Por favor, digite o caminho completo para o Discord.exe: ").strip().strip('"')
         if os.path.exists(custom):
@@ -617,43 +637,39 @@ def main():
             log_error("Caminho inválido. Encerrando.")
             sys.exit(1)
 
-    # 2. Determina configurações de execução
-    should_kill = args.kill
-    proxy_mode = "auto"
+    # 2. Modo de execução
+    force_tor = args.tor
     manual_proxy_url = args.proxy
 
-    if not args.auto and not args.proxy and not args.tor and not args.no_kill and not args.kill and not args.discord:
-        # Modo interativo
-        selected_install, proxy_mode, should_kill = interactive_menu(installs)
-        if proxy_mode == "manual":
+    if not args.auto and not args.proxy and not args.tor and not args.kill:
+        # Menu interativo intuitivo
+        action = interactive_menu(installs)
+        if action == "disable":
+            disable_bypass()
+            return
+        elif action == "tor":
+            force_tor = True
+        elif action == "manual":
             manual_proxy_url = input(f"{Color.CYAN}Digite o endereço da proxy (ex: socks5://127.0.0.1:9050): {Color.RESET}").strip()
-    else:
-        if not selected_install:
-            selected_install = installs[0]
-        if not args.no_kill:
-            should_kill = True
 
-    # 3. Encerra instâncias antigas se solicitado
-    if should_kill:
-        log_info("Encerrando instâncias antigas do Discord para aplicar a proxy no boot...")
+    # 3. Encerra instâncias antigas
+    if not args.no_kill:
+        log_info("Encerrando instâncias antigas do Discord para aplicar a nova sessão...")
         kill_discord_processes()
         time.sleep(1.0)
 
-    # 4. Resolve a proxy
-    force_tor = (args.tor or proxy_mode == "tor")
-    force_public = (proxy_mode == "public")
-    
-    proxy_data = resolve_proxy(manual_proxy_url, force_tor=force_tor, force_public=force_public)
+    # 4. Resolve proxy automaticamente
+    proxy_data = resolve_proxy(manual_proxy_url, force_tor=force_tor)
     
     if not proxy_data:
         log_error("Não foi possível obter uma proxy funcional fora do Brasil.")
-        log_info("Tente rodar com o Tor aberto (`--tor`) ou passe uma proxy manual (`--proxy socks5://...`)")
+        log_info("Tente abrir o Tor Browser antes de iniciar ou use uma proxy manual.")
         sys.exit(1)
 
     # 5. Inicia o Discord com a proxy
     print("-" * 66, flush=True)
-    log_info(f"Alvo: {Color.BOLD}{selected_install['name']}{Color.RESET}")
-    log_info(f"Proxy Server: {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} ({proxy_data.get('country', 'Fora do Brasil')})")
+    log_info(f"Discord detectado: {Color.BOLD}{selected_install['name']}{Color.RESET} ({selected_install['path']})")
+    log_info(f"Proxy Server: {Color.GREEN}{Color.BOLD}{proxy_data['url']}{Color.RESET} ({proxy_data.get('country', 'Internacional')})")
     print("-" * 66, flush=True)
     
     launch_discord(selected_install, proxy_data["url"])
