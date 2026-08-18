@@ -8,18 +8,19 @@ Ferramenta de código aberto para **Windows, Linux e macOS** que restaura as **t
 
 Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
 
-👉 **[Baixar LiveFreeBrasil v4.0.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+👉 **[Baixar LiveFreeBrasil v4.1.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
 
 - **`LiveFreeBrasil.exe`**: Executável único de 1 clique atualizado.
-- **`LiveFreeBrasil-v4.0.0-windows-x64.zip`**: Pacote completo zipado.
+- **`LiveFreeBrasil-v4.1.0-windows-x64.zip`**: Pacote completo zipado.
 
 Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho em segundo plano!
 
 ---
 
-## 🎯 Recursos & Destaques da Versão 4.0.0 (Smart Proxy Switcher)
+## 🎯 Recursos & Destaques da Versão 4.1.0
 
-- ⚡ **Micro-Proxy Switcher Integrado (Volta 100% para o Brasil!)**: O LiveFreeBrasil inicia um micro-túnel local. O Discord autentica nos primeiros segundos através da rota internacional (liberando Go Live e Câmera) e, assim que loga, o LiveFreeBrasil **chaveia o tráfego 100% para a sua internet nativa do Brasil**!
+- 🥷 **Auto-Ocultação Silenciosa (Zero Janelas Abertas)**: Após autenticar o Discord e chavear para o Brasil, a janela do prompt oculta-se automaticamente e monitora o Discord em segundo plano, encerrando-se sozinha quando você fechar o Discord.
+- ⚡ **Micro-Proxy Switcher Local (Volta 100% para o Brasil!)**: O Gateway autentica fora do país liberando as permissões, enquanto todo o tráfego pesado de mídia, áudio e vídeo corre **100% direto pela internet brasileira (ping 5ms a 15ms)**.
 - 🚀 **Zero Lag & Carregamento Instantâneo**: Como a porta local continua respondendo em modo direto, o Discord **NUNCA mais entra em carregamento infinito** e roda com ping de 5ms a 15ms!
 - 🛡️ **Liberação de RAM**: O processo do Tor é encerrado após a validação inicial.
 - 🌎 **Otimização Regional para América Latina (Argentina, Chile, Uruguai)**: O motor Tor e as rotas de backup priorizam nós vizinhos (`{ar}`, `{cl}`, `{uy}`, `{co}`).

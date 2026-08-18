@@ -23,7 +23,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "4.0.0"
+VERSION = "4.1.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -184,6 +184,14 @@ def connect_socks5_upstream(target_host: str, target_port: int, socks_host: str,
         return None
 
 
+def is_media_or_cdn_host(host: str) -> bool:
+    h = host.lower()
+    return any(h.endswith(d) or h == d for d in [
+        "discord.media", "discordapp.net", "cdn.discordapp.com",
+        "tenor.com", "giphy.com", "spotify.com", "spotifycdn.com"
+    ])
+
+
 def handle_client_connection(client_sock: socket.socket):
     try:
         client_sock.settimeout(5.0)
@@ -214,20 +222,20 @@ def handle_client_connection(client_sock: socket.socket):
                 remote_sock = None
                 global PROXY_ROUTING_MODE, UPSTREAM_SOCKS5_HOST, UPSTREAM_SOCKS5_PORT
                 
-                if PROXY_ROUTING_MODE == "INTERNATIONAL":
+                # Tráfego pesado de áudio/vídeo e CDN sempre vai 100% DIRETO pela internet do Brasil (0ms de lag)
+                if is_media_or_cdn_host(host) or PROXY_ROUTING_MODE == "DIRECT":
+                    try:
+                        remote_sock = socket.create_connection((host, port), timeout=4.0)
+                    except Exception:
+                        pass
+                else:
+                    # Autenticação de Gateway e Login via Rota Internacional
                     remote_sock = connect_socks5_upstream(host, port, UPSTREAM_SOCKS5_HOST, UPSTREAM_SOCKS5_PORT)
-                    # Fallback para direto caso o upstream falhe
                     if not remote_sock:
                         try:
                             remote_sock = socket.create_connection((host, port), timeout=4.0)
                         except Exception:
                             pass
-                else:
-                    # Modo DIRECT (Internet nativa do Brasil - 0ms de lag!)
-                    try:
-                        remote_sock = socket.create_connection((host, port), timeout=4.0)
-                    except Exception:
-                        pass
 
                 if remote_sock:
                     client_sock.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -1007,14 +1015,30 @@ def main():
         write_log("Proxy Switcher mudou para DIRECT. Internet do Brasil restaurada com sucesso.", "SUCCESS")
     
     print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Seu Discord está 100% liberado com Go Live, Câmera e Streams.", flush=True)
-    print(f"{Color.DIM}Para voltar ao modo padrão quando fechar o Discord, abra normalmente.{Color.RESET}\n", flush=True)
+    
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                print(f"{Color.DIM}[*] Ocultando janela em 2 segundos... O LiveFreeBrasil continuará ativo em segundo plano.{Color.RESET}", flush=True)
+                time.sleep(2)
+                ctypes.windll.user32.ShowWindow(hwnd, 0)
+        except Exception:
+            pass
 
-    # Mantém a thread do micro-proxy viva em segundo plano enquanto o usuário usa o Discord
+    # Monitora a execução do Discord em segundo plano e encerra quando o Discord for fechado
     try:
         while True:
-            time.sleep(1)
+            time.sleep(3)
+            if sys.platform == "win32":
+                out = subprocess.getoutput('tasklist /FI "IMAGENAME eq Discord.exe" /NH')
+                if "Discord.exe" not in out and "DiscordCanary.exe" not in out and "DiscordPTB.exe" not in out:
+                    write_log("Discord encerrado pelo usuário. Finalizando LiveFreeBrasil.", "INFO")
+                    break
     except KeyboardInterrupt:
-        sys.exit(0)
+        pass
+    sys.exit(0)
 
 
 if __name__ == "__main__":
