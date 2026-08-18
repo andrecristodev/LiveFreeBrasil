@@ -22,7 +22,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "2.7.0"
+VERSION = "2.8.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -433,12 +433,19 @@ def start_silent_tor_daemon() -> Optional[str]:
     subprocess.run(["taskkill", "/F", "/IM", "tor.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     time.sleep(0.3)
 
-    # 4. Inicia processo com DataDirectory isolado
-    cmd = [tor_exe, "--DataDirectory", TOR_DATA_DIR, "--SocksPort", "9050"]
+    # 4. Inicia processo com DataDirectory isolado e foco em América Latina
+    latam_nodes = "{ar},{cl},{uy},{co},{pe},{py},{mx},{us}"
+    cmd = [
+        tor_exe,
+        "--DataDirectory", TOR_DATA_DIR,
+        "--SocksPort", "9050",
+        "--ExitNodes", latam_nodes,
+        "--StrictNodes", "0"
+    ]
     if geoip and geoip6:
         cmd.extend(["--GeoIPFile", geoip, "--GeoIPv6File", geoip6])
 
-    log_info("Iniciando motor seguro em segundo plano...")
+    log_info("Iniciando motor Tor (Foco: América Latina / Argentina)...")
     write_log(f"Comando Tor: {' '.join(cmd)}", "INFO")
     CREATE_NO_WINDOW = 0x08000000
     try:
