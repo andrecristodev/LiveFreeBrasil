@@ -8,19 +8,21 @@ Ferramenta de código aberto para **Windows, Linux e macOS** que restaura as **t
 
 Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
 
-👉 **[Baixar LiveFreeBrasil v2.3.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+👉 **[Baixar LiveFreeBrasil v2.4.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
 
 - **`LiveFreeBrasil.exe`**: Executável único de 1 clique atualizado.
-- **`LiveFreeBrasil-v2.3.0-windows-x64.zip`**: Pacote completo zipado.
+- **`LiveFreeBrasil-v2.4.0-windows-x64.zip`**: Pacote completo zipado.
 
 Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho em segundo plano!
 
 ---
 
-## 🎯 Recursos & Destaques
+## 🎯 Recursos & Destaques da Versão 2.4.0
 
-- 🧅 **Motor Tor 100% Silencioso e Invisível**: O programa aciona o motor do Tor diretamente em segundo plano. **Nenhuma janela de navegador abre na sua tela!**
-- ⚡ **Auto-Connect Automático**: O túnel conecta instantaneamente aos circuitos internacionais sem requerer nenhum clique manual.
+- 🧅 **Motor Tor 100% Autônomo e Invisível**: Se o usuário não tiver o Tor, o programa baixa o motor oficial automaticamente e executa em segundo plano com zero janelas.
+- ⚡ **Auto-Connect & Fallback Resiliente**: Conecta instantaneamente. Se a rede local bloquear o Tor, o sistema ativa um backup internacional de alta velocidade na hora.
+- 🩺 **Sistema de Diagnóstico & Logs (`--diag`)**: Ferramenta embutida para testar Gateway, TLS, IP de saída e latência, salvando histórico detalhado em `%LOCALAPPDATA%\LiveFreeBrasil\livefreebrasil.log`.
+- 🛑 **Encerramento Forçado Anti-Lock**: Garante que todas as instâncias zumbis do Discord sejam encerradas antes da inicialização para repassar 100% dos argumentos de rede ao processo raiz.
 - 🎥 **Fix do Erro 2012 e Streams de Amigos**: O tráfego de sinalização RTC (`*.discord.media`) e WebSockets conecta perfeitamente para permitir tanto transmitir quanto assistir à transmissão de outras pessoas na chamada sem tela preta ou ícone `!`.
 - 🧹 **Auto-Limpeza de GPU & Cache**: Limpa caches corrompidos de renderização do Electron que causavam telas pretas no Discord.
 - 🛑 **Desativação Limpa em 1 Clique**: Desative o bypass a qualquer momento com [`Desativar_LiveFreeBrasil.bat`](Desativar_LiveFreeBrasil.bat) ou pela opção do menu, encerrando o serviço e restaurando o Discord na sua internet normal.
@@ -33,9 +35,10 @@ O Discord valida a região geográfica do usuário durante o handshake inicial d
 
 O **LiveFreeBrasil**:
 1. Localiza suas instalações do Discord automaticamente (Stable, Canary, PTB, Development ou Vesktop).
-2. Inicia o motor de conexão internacional segura em segundo plano.
-3. Valida a rota antes de abrir o Discord, evitando qualquer erro de timeout (`ERR_TIMED_OUT`) ou carregamento infinito.
-4. Inicia o Discord nativamente liberado com qualidade máxima (1080p 60fps).
+2. Encerra qualquer processo residual para evitar o single-instance lock do Chromium.
+3. Inicia o motor de conexão internacional segura em segundo plano.
+4. Valida a rota antes de abrir o Discord, evitando qualquer erro de timeout (`ERR_TIMED_OUT`) ou carregamento infinito.
+5. Inicia o Discord nativamente liberado com qualidade máxima (1080p 60fps).
 
 ---
 
@@ -62,7 +65,14 @@ Desativar_LiveFreeBrasil.bat
 
 ---
 
-### 3. No Terminal (Modo Interativo com Menu)
+### 3. Testar Conexão e Ver Logs (Diagnóstico)
+```bash
+LiveFreeBrasil.exe --diag
+```
+
+---
+
+### 4. No Terminal (Modo Interativo com Menu)
 ```bash
 python livefreebrasil.py
 # ou
@@ -75,8 +85,9 @@ Selecione a ação desejada:
   [1] Ativar Bypass (Motor Invisível - 100% Automático)
   [2] Desativar Bypass (Modo Normal) -> Abre direto sem proxy
   [3] Limpar Cache Gráfico (Reparar Tela Preta)
-  [4] Informar Proxy Manualmente
-  [5] Sair
+  [4] Ver Diagnóstico & Logs de Conexão
+  [5] Informar Proxy Manualmente
+  [6] Sair
 ```
 
 ---
