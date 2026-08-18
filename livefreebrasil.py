@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Motor de Conexão Internacional Resiliente, Diagnóstico Completo & Sistema de Logs
+Motor Internacional Ultra-Resiliente, Auto-Cura de Erros, Diagnóstico e Logs
 """
 
 import sys
@@ -22,7 +22,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -30,7 +30,11 @@ APP_DIR = os.path.join(LOCAL_APP_DATA, "LiveFreeBrasil")
 TOR_DIR = os.path.join(APP_DIR, "tor")
 TOR_DATA_DIR = os.path.join(APP_DIR, "tor_data")
 LOG_FILE = os.path.join(APP_DIR, "livefreebrasil.log")
-TOR_DOWNLOAD_URL = "https://archive.torproject.org/tor-package-archive/torbrowser/14.0.5/tor-expert-bundle-windows-x86_64-14.0.5.tar.gz"
+
+TOR_DOWNLOAD_URLS = [
+    "https://archive.torproject.org/tor-package-archive/torbrowser/14.0.5/tor-expert-bundle-windows-x86_64-14.0.5.tar.gz",
+    "https://dist.torproject.org/torbrowser/14.0.5/tor-expert-bundle-windows-x86_64-14.0.5.tar.gz"
+]
 
 os.makedirs(APP_DIR, exist_ok=True)
 os.makedirs(TOR_DATA_DIR, exist_ok=True)
@@ -43,14 +47,18 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Pool de rotas internacionais de backup caso o Tor falhe
+# Pool de rotas internacionais de backup estáticas
 BACKUP_PROXIES = [
     ("socks5", "200.50.249.224", 1080, "Argentina"),
     ("socks5", "170.245.50.65", 1080, "Chile"),
     ("socks5", "190.61.43.122", 1080, "Colômbia"),
+    ("socks5", "190.61.61.210", 1080, "Colômbia"),
+    ("socks5", "201.165.172.14", 1080, "México"),
     ("socks5", "144.172.101.188", 1080, "Estados Unidos"),
     ("socks5", "72.195.34.40", 4145, "Estados Unidos"),
     ("socks5", "68.71.249.152", 4145, "Canadá"),
+    ("socks5", "184.178.172.28", 4145, "Estados Unidos"),
+    ("socks5", "98.162.25.29", 4145, "Estados Unidos"),
 ]
 
 # Cores ANSI
@@ -78,6 +86,17 @@ def write_log(msg: str, level: str = "INFO"):
         pass
 
 
+def pause_and_exit(code: int = 0):
+    """Evita o fechamento instantâneo da janela do prompt no Windows."""
+    if code != 0:
+        print(f"\n{Color.YELLOW}[*] Pressione ENTER para fechar esta janela...{Color.RESET}", flush=True)
+        try:
+            input()
+        except Exception:
+            time.sleep(5)
+    sys.exit(code)
+
+
 def print_banner():
     banner = rf"""
 {Color.GREEN}{Color.BOLD}==================================================================
@@ -88,7 +107,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.CYAN}  🛡️ Motor Internacional 100% Autônomo com Diagnóstico e Logs
+{Color.CYAN}  🛡️ Motor Internacional 100% Autônomo com Auto-Cura e Diagnóstico
 {Color.GREEN}=================================================================={Color.RESET}
 """
     print(banner, flush=True)
@@ -357,44 +376,40 @@ def find_tor_binary_and_data() -> Tuple[Optional[str], Optional[str], Optional[s
 
 
 def download_and_extract_tor() -> Optional[str]:
-    """Baixa o pacote oficial do Tor Expert Bundle silenciosamente caso o usuário não tenha o Tor."""
-    log_info("Baixando motor Tor oficial (~14MB)...")
+    """Baixa o pacote oficial do Tor Expert Bundle com User-Agent e mirrors resilientes."""
+    log_info("Instalando motor Tor oficial (~14MB)...")
     write_log("Iniciando download do Tor Expert Bundle oficial...", "INFO")
     tar_path = os.path.join(APP_DIR, "tor_bundle.tar.gz")
     
-    try:
-        def report(count, block_size, total_size):
-            percent = int(count * block_size * 100 / total_size) if total_size > 0 else 0
-            percent = min(percent, 100)
-            sys.stdout.write(f"\r{Color.CYAN}[*] Baixando Tor: {percent}% concluído...{Color.RESET}")
-            sys.stdout.flush()
-
-        urllib.request.urlretrieve(TOR_DOWNLOAD_URL, tar_path, reporthook=report)
-        print("", flush=True)
-        
-        log_info("Extraindo arquivos do motor Tor...")
-        with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=TOR_DIR)
-            
+    for url in TOR_DOWNLOAD_URLS:
         try:
-            os.remove(tar_path)
-        except Exception:
-            pass
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=10.0) as resp, open(tar_path, "wb") as out:
+                shutil.copyfileobj(resp, out)
             
-        t_exe, _, _ = find_tor_binary_and_data()
-        if t_exe:
-            log_success("Motor Tor instalado com sucesso!")
-            write_log(f"Tor instalado com sucesso em: {t_exe}", "SUCCESS")
-            return t_exe
-    except Exception as e:
-        log_error(f"Falha no download automático do Tor: {e}")
-        write_log(f"Erro no download do Tor: {e}", "ERROR")
-        
+            log_info("Extraindo arquivos do motor Tor...")
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=TOR_DIR)
+                
+            try:
+                os.remove(tar_path)
+            except Exception:
+                pass
+                
+            t_exe, _, _ = find_tor_binary_and_data()
+            if t_exe:
+                log_success("Motor Tor instalado com sucesso!")
+                write_log(f"Tor instalado em: {t_exe}", "SUCCESS")
+                return t_exe
+        except Exception as e:
+            write_log(f"Falha ao baixar Tor de {url}: {e}", "WARN")
+            continue
+            
     return None
 
 
 def start_silent_tor_daemon() -> Optional[str]:
-    """Inicia o daemon do Tor 100% invisível em segundo plano e conecta com retry e timeout inteligente."""
+    """Inicia o daemon do Tor 100% invisível em segundo plano e conecta com retry inteligente."""
     # 1. Checa se já está rodando
     if test_socks_connectivity("127.0.0.1", 9050, timeout=0.4):
         log_success(f"Motor Tor já ativo em segundo plano: {Color.BOLD}socks5://127.0.0.1:9050{Color.RESET}")
@@ -411,7 +426,7 @@ def start_silent_tor_daemon() -> Optional[str]:
             tor_exe, geoip, geoip6 = find_tor_binary_and_data()
 
     if not tor_exe:
-        log_error("Não foi possível localizar ou instalar o Tor.")
+        write_log("Binário do Tor não localizado. Alternando para rotas públicas...", "WARN")
         return None
 
     # 3. Mata instâncias zumbis
@@ -423,7 +438,7 @@ def start_silent_tor_daemon() -> Optional[str]:
     if geoip and geoip6:
         cmd.extend(["--GeoIPFile", geoip, "--GeoIPv6File", geoip6])
 
-    log_info("Iniciando motor Tor silencioso em segundo plano...")
+    log_info("Iniciando motor seguro em segundo plano...")
     write_log(f"Comando Tor: {' '.join(cmd)}", "INFO")
     CREATE_NO_WINDOW = 0x08000000
     try:
@@ -434,22 +449,21 @@ def start_silent_tor_daemon() -> Optional[str]:
             stderr=subprocess.DEVNULL
         )
     except Exception as e:
-        log_error(f"Falha ao iniciar processo Tor: {e}")
-        write_log(f"Falha ao iniciar processo Tor: {e}", "ERROR")
+        write_log(f"Falha ao disparar processo Tor: {e}", "ERROR")
         return None
 
     # 5. Monitora prontidão real de tráfego HTTPS
     write_log("Aguardando circuito de criptografia do Tor...", "INFO")
-    for i in range(30):
+    for i in range(25):
         time.sleep(0.5)
         ms = test_socks_connectivity("127.0.0.1", 9050, timeout=0.4)
         if ms is not None:
             print("", flush=True)
-            log_success(f"Túnel Tor conectado e validado com sucesso! (Ping: {ms}ms)")
+            log_success(f"Túnel seguro conectado e validado! (Ping: {ms}ms)")
             write_log(f"Tor 100% pronto em 127.0.0.1:9050 ({ms}ms)", "SUCCESS")
             return "socks5://127.0.0.1:9050"
             
-        sys.stdout.write(f"\r{Color.CYAN}[*] Estabelecendo circuito seguro com a rede internacional... ({int((i+1)/30*100)}%){Color.RESET}")
+        sys.stdout.write(f"\r{Color.CYAN}[*] Estabelecendo circuito seguro com a rede internacional... ({int((i+1)/25*100)}%){Color.RESET}")
         sys.stdout.flush()
     print("", flush=True)
 
@@ -460,12 +474,37 @@ def start_silent_tor_daemon() -> Optional[str]:
     return None
 
 
-def get_fast_backup_proxy() -> Optional[Dict]:
-    """Testa concorrentemente o pool de rotas internacionais de backup."""
-    log_info("Buscando rota internacional alternativa de alta velocidade...")
-    write_log("Buscando backup proxies...", "INFO")
-    tested = []
+def fetch_online_public_proxies() -> List[Tuple[str, int]]:
+    """Baixa lista atualizada de proxies internacionais online em caso de emergência."""
+    found = []
+    urls = [
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+        "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
+        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt"
+    ]
+    for u in urls:
+        try:
+            req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                lines = resp.read().decode("utf-8", errors="ignore").splitlines()
+                for line in lines[:80]:
+                    line = line.strip()
+                    if ":" in line and not line.startswith("#"):
+                        parts = line.split(":")
+                        if len(parts) >= 2 and parts[1].isdigit():
+                            found.append((parts[0], int(parts[1])))
+        except Exception:
+            continue
+    return found
 
+
+def get_fast_backup_proxy() -> Optional[Dict]:
+    """Testa concorrentemente o pool de rotas internacionais de backup estáticas e dinâmicas."""
+    log_info("Buscando rota internacional de alta velocidade...")
+    write_log("Testando rotas de backup...", "INFO")
+    candidates = list(BACKUP_PROXIES)
+
+    tested = []
     def worker(entry):
         proto, host, port, country = entry
         ms = test_gateway_tls(host, port, timeout=1.2)
@@ -480,8 +519,8 @@ def get_fast_backup_proxy() -> Optional[Dict]:
             }
         return None
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(worker, item) for item in BACKUP_PROXIES]
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        futures = [executor.submit(worker, item) for item in candidates]
         for f in as_completed(futures):
             res = f.result()
             if res:
@@ -492,8 +531,33 @@ def get_fast_backup_proxy() -> Optional[Dict]:
     if tested:
         tested.sort(key=lambda x: x["latency"])
         best = tested[0]
-        write_log(f"Melhor rota de backup selecionada: {best['url']} ({best['country']}, {best['latency']}ms)", "INFO")
+        write_log(f"Rota estática selecionada: {best['url']} ({best['country']}, {best['latency']}ms)", "INFO")
         return best
+
+    # Fallback online dinâmico
+    online_candidates = fetch_online_public_proxies()
+    if online_candidates:
+        def online_worker(item):
+            host, port = item
+            ms = test_gateway_tls(host, port, timeout=1.2)
+            if ms is not None:
+                return {
+                    "proto": "socks5",
+                    "host": host,
+                    "port": port,
+                    "country": "Internacional",
+                    "latency": ms,
+                    "url": f"socks5://{host}:{port}"
+                }
+            return None
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(online_worker, c) for c in online_candidates[:60]]
+            for f in as_completed(futures):
+                res = f.result()
+                if res:
+                    write_log(f"Rota online dinâmica selecionada: {res['url']}", "INFO")
+                    return res
 
     return None
 
@@ -691,6 +755,7 @@ def main():
 
     if args.diag:
         run_diagnostic()
+        pause_and_exit(0)
         return
 
     if args.clean:
@@ -715,7 +780,8 @@ def main():
         
     if not selected_install:
         log_error("Nenhuma instalação do Discord encontrada.")
-        sys.exit(1)
+        pause_and_exit(1)
+        return
 
     # 2. Modo de execução
     mode = "tor" if (args.auto or args.tor) else None
@@ -733,6 +799,7 @@ def main():
             return
         elif action == "diag":
             run_diagnostic()
+            pause_and_exit(0)
             return
         elif action == "manual":
             manual_proxy_url = input(f"{Color.CYAN}Endereço da proxy: {Color.RESET}").strip()
@@ -757,7 +824,7 @@ def main():
         if proxy_url:
             country_label = "Túnel Seguro (Tor)"
         else:
-            # Fallback transparente para rota internacional pública
+            # Fallback transparente para rota internacional de alta velocidade
             log_warning("Túnel local indisponível. Alternando para rota internacional de alta velocidade...")
             backup = get_fast_backup_proxy()
             if backup:
@@ -767,7 +834,8 @@ def main():
     if not proxy_url:
         log_error("Não foi possível estabelecer uma rota de saída internacional.")
         log_info("Dica: Execute 'LiveFreeBrasil.exe --diag' para verificar sua conectividade.")
-        sys.exit(1)
+        pause_and_exit(1)
+        return
 
     # 5. Inicia o Discord com rota liberada
     print("-" * 66, flush=True)
@@ -779,9 +847,14 @@ def main():
     
     print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Discord iniciado com Go Live, Câmera e Streams 100% liberados.", flush=True)
 
+
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         print(f"\n{Color.YELLOW}[!] Cancelado.{Color.RESET}")
         sys.exit(0)
+    except Exception as e:
+        write_log(f"Erro não tratado no LiveFreeBrasil: {e}", "CRITICAL")
+        print(f"\n{Color.RED}[✗] Erro inesperado: {e}{Color.RESET}")
+        pause_and_exit(1)
