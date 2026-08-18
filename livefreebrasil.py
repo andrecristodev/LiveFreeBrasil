@@ -22,7 +22,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "2.6.0"
+VERSION = "2.7.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -576,30 +576,24 @@ def kill_tor_processes():
 # LAUNCH DO DISCORD COM REPASSE DIRETO DE ARGUMENTOS
 # -----------------------------------------------------------------------------
 
-# Domínios de tráfego de mídia e vídeo em alta taxa de bits que devem ir direto
-STREAM_BYPASS_LIST = "*.discord.media;*.discordapp.net;cdn.discordapp.com;*.tenor.com;*.giphy.com;127.0.0.1;localhost"
-
 def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
     """Dispara o Discord garantindo o encerramento prévio e o repasse puro de argumentos."""
-    clean_discord_gpu_cache()
-    
     cmd = []
     if proxy_url:
         proxy_arg = f'--proxy-server={proxy_url}'
-        bypass_arg = f'--proxy-bypass-list={STREAM_BYPASS_LIST}'
         if sys.platform == "win32":
             if install["type"] == "updater":
                 folder_path = os.path.join(os.environ.get("LOCALAPPDATA", ""), install["folder"])
                 direct_exes = glob.glob(os.path.join(folder_path, "app-*", f"{install['folder']}.exe"))
                 if direct_exes:
                     direct_exes.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-                    cmd = [direct_exes[0], proxy_arg, bypass_arg]
+                    cmd = [direct_exes[0], proxy_arg]
                 else:
-                    cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", f"{proxy_arg} {bypass_arg}"]
+                    cmd = [install["path"], "--processStart", f"{install['folder']}.exe", "--process-args", proxy_arg]
             else:
-                cmd = [install["path"], proxy_arg, bypass_arg]
+                cmd = [install["path"], proxy_arg]
         else:
-            cmd = [install["path"], proxy_arg, bypass_arg]
+            cmd = [install["path"], proxy_arg]
     else:
         if sys.platform == "win32":
             if install["type"] == "updater":
