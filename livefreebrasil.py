@@ -22,7 +22,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -850,19 +850,9 @@ def main():
     
     launch_discord(selected_install, proxy_url)
     
-    if not getattr(args, "keep_proxy", False) and "Tor" in country_label:
-        print(f"\n{Color.CYAN}[*] Modo Smart Handshake ativo:{Color.RESET}")
-        print(f"{Color.DIM}    ↳ O Discord valida a região apenas no boot. Restaurando sua internet de alta velocidade...{Color.RESET}")
-        for i in range(10, 0, -1):
-            sys.stdout.write(f"\r{Color.CYAN}[*] Concluindo autenticação inicial em {i}s...{Color.RESET}")
-            sys.stdout.flush()
-            time.sleep(1)
-        print("", flush=True)
-        kill_tor_processes()
-        log_success("Conexão nativa do Brasil restaurada! Chamadas e lives em velocidade máxima (sem lag).")
-        write_log("Smart Handshake concluído. Tor desvinculado com sucesso.", "SUCCESS")
-    
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Discord aberto com Go Live, Câmera e Streams 100% liberados.", flush=True)
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} O Discord está conectado via túnel internacional.", flush=True)
+    print(f"{Color.WHITE}Transmissão de tela (Go Live), Câmera e Streams de amigos 100% liberados.{Color.RESET}")
+    print(f"{Color.DIM}Para voltar ao modo normal sem proxy, use a opção [2] ou o arquivo 'Desativar_LiveFreeBrasil.bat'.{Color.RESET}\n", flush=True)
 
 
 if __name__ == "__main__":
