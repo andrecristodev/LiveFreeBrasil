@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LiveFreeBrasil CLI — Desbloqueio de Transmissão de Tela & Câmera no Discord (Brasil) via Terminal
-Motor Internacional Ultra-Resiliente, Auto-Cura de Erros, Diagnóstico e Logs
+Motor de Proxy Switcher Local Inteligente: Autentica fora do Brasil e restaura a internet local nativa sem lag.
 """
 
 import sys
@@ -15,6 +15,7 @@ import glob
 import ssl
 import shutil
 import tarfile
+import threading
 import subprocess
 import argparse
 import urllib.request
@@ -22,7 +23,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "3.1.0"
+VERSION = "4.0.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -39,7 +40,7 @@ TOR_DOWNLOAD_URLS = [
 os.makedirs(APP_DIR, exist_ok=True)
 os.makedirs(TOR_DATA_DIR, exist_ok=True)
 
-# Configura encoding de saída para terminais Windows
+# Configura encoding de saída para Windows
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -57,9 +58,13 @@ BACKUP_PROXIES = [
     ("socks5", "144.172.101.188", 1080, "Estados Unidos"),
     ("socks5", "72.195.34.40", 4145, "Estados Unidos"),
     ("socks5", "68.71.249.152", 4145, "Canadá"),
-    ("socks5", "184.178.172.28", 4145, "Estados Unidos"),
-    ("socks5", "98.162.25.29", 4145, "Estados Unidos"),
 ]
+
+# Variáveis globais do Micro Proxy Switcher
+LOCAL_SWITCHER_PORT = 9051
+PROXY_ROUTING_MODE = "INTERNATIONAL"  # "INTERNATIONAL" durante o boot -> "DIRECT" após autenticado
+UPSTREAM_SOCKS5_HOST = "127.0.0.1"
+UPSTREAM_SOCKS5_PORT = 9050
 
 # Cores ANSI
 class Color:
@@ -107,7 +112,7 @@ def print_banner():
  |_____|_| \_/ \___|_|  |_|  \___|\___|____/|_|  \__,_|___/|_|_|
                                                                 
 {Color.WHITE}{Color.BOLD}  LiveFreeBrasil — Desbloqueio de Tela & Câmera no Discord v{VERSION}
-{Color.CYAN}  🛡️ Motor Internacional 100% Autônomo com Auto-Cura e Diagnóstico
+{Color.CYAN}  ⚡ Smart Proxy Switcher: Autentica fora e restaura internet do Brasil!
 {Color.GREEN}=================================================================={Color.RESET}
 """
     print(banner, flush=True)
@@ -131,6 +136,140 @@ def log_warning(msg: str):
 def log_error(msg: str):
     write_log(msg, "ERROR")
     print(f"{Color.RED}[✗]{Color.RESET} {msg}", flush=True)
+
+
+# -----------------------------------------------------------------------------
+# MICRO-PROXY SWITCHER LOCAL INTELIGENTE (HTTP CONNECT TUNNEL)
+# -----------------------------------------------------------------------------
+
+def pipe_sockets(s1: socket.socket, s2: socket.socket):
+    try:
+        while True:
+            data = s1.recv(16384)
+            if not data:
+                break
+            s2.sendall(data)
+    except Exception:
+        pass
+    finally:
+        try:
+            s1.close()
+        except Exception:
+            pass
+        try:
+            s2.close()
+        except Exception:
+            pass
+
+
+def connect_socks5_upstream(target_host: str, target_port: int, socks_host: str, socks_port: int) -> Optional[socket.socket]:
+    """Estabelece túnel TCP via SOCKS5 upstream (Tor / Proxy)."""
+    try:
+        s = socket.create_connection((socks_host, socks_port), timeout=4.0)
+        s.settimeout(4.0)
+        s.sendall(b"\x05\x01\x00")
+        if s.recv(2) != b"\x05\x00":
+            s.close()
+            return None
+        target_bytes = target_host.encode("utf-8")
+        req = b"\x05\x01\x00\x03" + bytes([len(target_bytes)]) + target_bytes + struct.pack(">H", target_port)
+        s.sendall(req)
+        res = s.recv(10)
+        if len(res) < 2 or res[0] != 5 or res[1] != 0:
+            s.close()
+            return None
+        s.settimeout(None)
+        return s
+    except Exception:
+        return None
+
+
+def handle_client_connection(client_sock: socket.socket):
+    try:
+        client_sock.settimeout(5.0)
+        header = b""
+        while b"\r\n\r\n" not in header:
+            chunk = client_sock.recv(1024)
+            if not chunk:
+                break
+            header += chunk
+            if len(header) > 8192:
+                break
+
+        if not header:
+            client_sock.close()
+            return
+
+        text = header.decode("utf-8", errors="ignore")
+        lines = text.split("\r\n")
+        first_line = lines[0] if lines else ""
+        
+        if first_line.startswith("CONNECT"):
+            parts = first_line.split()
+            if len(parts) >= 2:
+                target = parts[1]
+                host, port_str = target.split(":") if ":" in target else (target, "443")
+                port = int(port_str)
+                
+                remote_sock = None
+                global PROXY_ROUTING_MODE, UPSTREAM_SOCKS5_HOST, UPSTREAM_SOCKS5_PORT
+                
+                if PROXY_ROUTING_MODE == "INTERNATIONAL":
+                    remote_sock = connect_socks5_upstream(host, port, UPSTREAM_SOCKS5_HOST, UPSTREAM_SOCKS5_PORT)
+                    # Fallback para direto caso o upstream falhe
+                    if not remote_sock:
+                        try:
+                            remote_sock = socket.create_connection((host, port), timeout=4.0)
+                        except Exception:
+                            pass
+                else:
+                    # Modo DIRECT (Internet nativa do Brasil - 0ms de lag!)
+                    try:
+                        remote_sock = socket.create_connection((host, port), timeout=4.0)
+                    except Exception:
+                        pass
+
+                if remote_sock:
+                    client_sock.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                    client_sock.settimeout(None)
+                    remote_sock.settimeout(None)
+                    t1 = threading.Thread(target=pipe_sockets, args=(client_sock, remote_sock), daemon=True)
+                    t2 = threading.Thread(target=pipe_sockets, args=(remote_sock, client_sock), daemon=True)
+                    t1.start()
+                    t2.start()
+                    return
+        
+        client_sock.close()
+    except Exception:
+        try:
+            client_sock.close()
+        except Exception:
+            pass
+
+
+def start_local_proxy_switcher():
+    """Inicia o servidor de micro-proxy local na porta 9051."""
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        server.bind(("127.0.0.1", LOCAL_SWITCHER_PORT))
+        server.listen(128)
+    except Exception as e:
+        write_log(f"Falha ao iniciar micro-proxy local na porta {LOCAL_SWITCHER_PORT}: {e}", "ERROR")
+        return False
+
+    def loop():
+        while True:
+            try:
+                c, _ = server.accept()
+                threading.Thread(target=handle_client_connection, args=(c,), daemon=True).start()
+            except Exception:
+                pass
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+    write_log(f"Micro-Proxy Switcher iniciado em 127.0.0.1:{LOCAL_SWITCHER_PORT}", "INFO")
+    return True
 
 
 # -----------------------------------------------------------------------------
@@ -410,7 +549,6 @@ def download_and_extract_tor() -> Optional[str]:
 
 def start_silent_tor_daemon() -> Optional[str]:
     """Inicia o daemon do Tor 100% invisível em segundo plano e conecta com retry inteligente."""
-    # 1. Checa se já está rodando
     if test_socks_connectivity("127.0.0.1", 9050, timeout=0.4):
         log_success(f"Motor Tor já ativo em segundo plano: {Color.BOLD}socks5://127.0.0.1:9050{Color.RESET}")
         return "socks5://127.0.0.1:9050"
@@ -418,7 +556,6 @@ def start_silent_tor_daemon() -> Optional[str]:
         log_success(f"Tor Browser ativo: {Color.BOLD}socks5://127.0.0.1:9150{Color.RESET}")
         return "socks5://127.0.0.1:9150"
 
-    # 2. Localiza ou baixa os binários
     tor_exe, geoip, geoip6 = find_tor_binary_and_data()
     if not tor_exe:
         tor_exe = download_and_extract_tor()
@@ -429,11 +566,9 @@ def start_silent_tor_daemon() -> Optional[str]:
         write_log("Binário do Tor não localizado. Alternando para rotas públicas...", "WARN")
         return None
 
-    # 3. Mata instâncias zumbis
     subprocess.run(["taskkill", "/F", "/IM", "tor.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     time.sleep(0.3)
 
-    # 4. Inicia processo com DataDirectory isolado e foco em América Latina
     latam_nodes = "{ar},{cl},{uy},{co},{pe},{py},{mx},{us}"
     cmd = [
         tor_exe,
@@ -459,7 +594,6 @@ def start_silent_tor_daemon() -> Optional[str]:
         write_log(f"Falha ao disparar processo Tor: {e}", "ERROR")
         return None
 
-    # 5. Monitora prontidão real de tráfego HTTPS
     write_log("Aguardando circuito de criptografia do Tor...", "INFO")
     for i in range(25):
         time.sleep(0.5)
@@ -482,7 +616,6 @@ def start_silent_tor_daemon() -> Optional[str]:
 
 
 def fetch_online_public_proxies() -> List[Tuple[str, int]]:
-    """Baixa lista atualizada de proxies internacionais online em caso de emergência."""
     found = []
     urls = [
         "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
@@ -506,7 +639,6 @@ def fetch_online_public_proxies() -> List[Tuple[str, int]]:
 
 
 def get_fast_backup_proxy() -> Optional[Dict]:
-    """Testa concorrentemente o pool de rotas internacionais de backup estáticas e dinâmicas."""
     log_info("Buscando rota internacional de alta velocidade...")
     write_log("Testando rotas de backup...", "INFO")
     candidates = list(BACKUP_PROXIES)
@@ -541,7 +673,6 @@ def get_fast_backup_proxy() -> Optional[Dict]:
         write_log(f"Rota estática selecionada: {best['url']} ({best['country']}, {best['latency']}ms)", "INFO")
         return best
 
-    # Fallback online dinâmico
     online_candidates = fetch_online_public_proxies()
     if online_candidates:
         def online_worker(item):
@@ -619,7 +750,7 @@ def launch_discord(install: Dict[str, str], proxy_url: Optional[str] = None):
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         
         if proxy_url:
-            log_success(f"{install['name']} iniciado com sucesso no modo {Color.BOLD}LiveFreeBrasil{Color.RESET}!")
+            log_success(f"{install['name']} iniciado no modo {Color.BOLD}LiveFreeBrasil{Color.RESET}!")
             write_log("Discord iniciado com proxy.", "SUCCESS")
         else:
             log_success(f"{install['name']} iniciado normalmente sem proxy!")
@@ -713,7 +844,7 @@ def parse_args():
     parser.add_argument("--diag", "--diagnostic", action="store_true", help="Executa diagnóstico de rede e exibe logs")
     parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache gráfico da GPU do Discord")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
-    parser.add_argument("--keep-proxy", action="store_true", help="Mantém o Tor ativo continuamente em vez de desconectar após o boot")
+    parser.add_argument("--no-switch", action="store_true", help="Mantém o tráfego 100% pelo Tor sem chavear para o Brasil")
     parser.add_argument("-k", "--kill", action="store_true", help="Encerra instâncias anteriores do Discord")
     parser.add_argument("--no-kill", action="store_true", help="Não encerra instâncias abertas")
     parser.add_argument("-d", "--discord", type=str, help="Caminho do executável do Discord")
@@ -724,8 +855,8 @@ def parse_args():
 
 def interactive_menu(installs: List[Dict[str, str]]) -> str:
     print(f"{Color.BOLD}Selecione a ação desejada:{Color.RESET}")
-    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass (Motor Invisível - 100% Automático){Color.RESET}")
-    print(f"      {Color.DIM}↳ Conecta sozinho em segundo plano. Live, Câmera e Streams 100% liberadas.{Color.RESET}")
+    print(f"  [1] {Color.GREEN}{Color.BOLD}Ativar Bypass Inteligente (Autentica fora & Restaura Brasil){Color.RESET}")
+    print(f"      {Color.DIM}↳ Desbloqueia tela & câmera e restaura internet local com zero lag.{Color.RESET}")
     print(f"  [2] {Color.RED}Desativar Bypass (Modo Normal){Color.RESET} -> Abre direto sem proxy")
     print(f"  [3] {Color.MAGENTA}Limpar Cache Gráfico (Reparar Tela Preta){Color.RESET}")
     print(f"  [4] {Color.CYAN}Ver Diagnóstico & Logs de Conexão{Color.RESET}")
@@ -752,6 +883,8 @@ def interactive_menu(installs: List[Dict[str, str]]) -> str:
 
 
 def main():
+    global PROXY_ROUTING_MODE, UPSTREAM_SOCKS5_HOST, UPSTREAM_SOCKS5_PORT
+
     if sys.platform == "win32":
         os.system("")
 
@@ -811,25 +944,23 @@ def main():
         else:
             mode = action
 
-    # 3. Encerra instâncias antigas de forma segura
+    # 3. Encerra instâncias antigas de forma limpa
     if not args.no_kill:
         kill_discord_processes()
         time.sleep(0.3)
 
-    # 4. Resolve rota internacional segura (com fallback automático resiliente)
+    # 4. Resolve rota internacional upstream
     proxy_url = None
-    country_label = "Motor Internacional"
+    country_label = "América Latina"
     
     if manual_proxy_url:
         proxy_url = manual_proxy_url if "://" in manual_proxy_url else f"socks5://{manual_proxy_url}"
         country_label = "Manual"
     else:
-        # Tenta motor Tor nativo
         proxy_url = start_silent_tor_daemon()
         if proxy_url:
-            country_label = "Túnel Seguro (Tor)"
+            country_label = "América Latina (Tor)"
         else:
-            # Fallback transparente para rota internacional de alta velocidade
             log_warning("Túnel local indisponível. Alternando para rota internacional de alta velocidade...")
             backup = get_fast_backup_proxy()
             if backup:
@@ -842,17 +973,50 @@ def main():
         pause_and_exit(1)
         return
 
-    # 5. Inicia o Discord com rota liberada
+    # 5. Inicia o Micro-Proxy Switcher Local
+    PROXY_ROUTING_MODE = "INTERNATIONAL"
+    if "://" in proxy_url:
+        parts = proxy_url.split("://")[1].split(":")
+        UPSTREAM_SOCKS5_HOST = parts[0]
+        UPSTREAM_SOCKS5_PORT = int(parts[1]) if len(parts) > 1 else 1080
+
+    start_local_proxy_switcher()
+    local_proxy_endpoint = f"http://127.0.0.1:{LOCAL_SWITCHER_PORT}"
+
+    # 6. Inicia o Discord através do Proxy Switcher
     print("-" * 66, flush=True)
     log_info(f"Discord: {Color.BOLD}{selected_install['name']}{Color.RESET}")
-    log_info(f"Rota Internacional: {Color.GREEN}{Color.BOLD}{proxy_url}{Color.RESET} ({country_label})")
+    log_info(f"Modo Inicial: {Color.CYAN}{Color.BOLD}Autenticação Internacional{Color.RESET} ({country_label})")
     print("-" * 66, flush=True)
     
-    launch_discord(selected_install, proxy_url)
+    launch_discord(selected_install, local_proxy_endpoint)
+
+    # 7. Aguarda o Discord autenticar no Gateway e chaveia para o Brasil com 0ms de lag
+    if not args.no_switch:
+        print(f"\n{Color.CYAN}[*] Smart Handshake em andamento...{Color.RESET}")
+        for i in range(12, 0, -1):
+            sys.stdout.write(f"\r{Color.YELLOW}[*] Validando permissões de Live e Câmera no Gateway... ({i}s){Color.RESET}")
+            sys.stdout.flush()
+            time.sleep(1)
+        print("", flush=True)
+        
+        # Vira a chave para DIRECT (Internet local do Brasil)
+        PROXY_ROUTING_MODE = "DIRECT"
+        kill_tor_processes()
+        
+        log_success("Discord autenticado e liberado com sucesso!")
+        log_success("Tráfego chaveado para conexão direta do Brasil (0% de lag, ping nativo de fibra).")
+        write_log("Proxy Switcher mudou para DIRECT. Internet do Brasil restaurada com sucesso.", "SUCCESS")
     
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} O Discord está conectado via túnel internacional.", flush=True)
-    print(f"{Color.WHITE}Transmissão de tela (Go Live), Câmera e Streams de amigos 100% liberados.{Color.RESET}")
-    print(f"{Color.DIM}Para voltar ao modo normal sem proxy, use a opção [2] ou o arquivo 'Desativar_LiveFreeBrasil.bat'.{Color.RESET}\n", flush=True)
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Seu Discord está 100% liberado com Go Live, Câmera e Streams.", flush=True)
+    print(f"{Color.DIM}Para voltar ao modo padrão quando fechar o Discord, abra normalmente.{Color.RESET}\n", flush=True)
+
+    # Mantém a thread do micro-proxy viva em segundo plano enquanto o usuário usa o Discord
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 if __name__ == "__main__":

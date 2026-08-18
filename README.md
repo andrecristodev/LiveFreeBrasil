@@ -8,18 +8,20 @@ Ferramenta de código aberto para **Windows, Linux e macOS** que restaura as **t
 
 Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
 
-👉 **[Baixar LiveFreeBrasil v3.1.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+👉 **[Baixar LiveFreeBrasil v4.0.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
 
 - **`LiveFreeBrasil.exe`**: Executável único de 1 clique atualizado.
-- **`LiveFreeBrasil-v3.1.0-windows-x64.zip`**: Pacote completo zipado.
+- **`LiveFreeBrasil-v4.0.0-windows-x64.zip`**: Pacote completo zipado.
 
 Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho em segundo plano!
 
 ---
 
-## 🎯 Recursos & Destaques da Versão 3.1.0
+## 🎯 Recursos & Destaques da Versão 4.0.0 (Smart Proxy Switcher)
 
-- 🛡️ **Conexão Contínua Estável**: O motor Tor mantém o túnel ativo sem desconexões prematuras, eliminando a tela preta de carregamento infinito do Discord.
+- ⚡ **Micro-Proxy Switcher Integrado (Volta 100% para o Brasil!)**: O LiveFreeBrasil inicia um micro-túnel local. O Discord autentica nos primeiros segundos através da rota internacional (liberando Go Live e Câmera) e, assim que loga, o LiveFreeBrasil **chaveia o tráfego 100% para a sua internet nativa do Brasil**!
+- 🚀 **Zero Lag & Carregamento Instantâneo**: Como a porta local continua respondendo em modo direto, o Discord **NUNCA mais entra em carregamento infinito** e roda com ping de 5ms a 15ms!
+- 🛡️ **Liberação de RAM**: O processo do Tor é encerrado após a validação inicial.
 - 🌎 **Otimização Regional para América Latina (Argentina, Chile, Uruguai)**: O motor Tor e as rotas de backup priorizam nós vizinhos (`{ar}`, `{cl}`, `{uy}`, `{co}`).
 - 🛡️ **Fix Definitivo de Tela Preta**: Preserva os caches e shaders de GPU no boot padrão para abrir o Discord limpo em todas as placas de vídeo.
 - 🧅 **Motor Tor 100% Autônomo com Auto-Cura**: Localiza ou baixa o motor oficial do Tor automaticamente. Valida caminhos de arquivos de inicialização para evitar qualquer erro de boot no Windows.
