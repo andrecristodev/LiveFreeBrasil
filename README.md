@@ -8,19 +8,20 @@ Ferramenta de código aberto para **Windows, Linux e macOS** que restaura as **t
 
 Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
 
-👉 **[Baixar LiveFreeBrasil v2.4.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+👉 **[Baixar LiveFreeBrasil v2.5.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
 
 - **`LiveFreeBrasil.exe`**: Executável único de 1 clique atualizado.
-- **`LiveFreeBrasil-v2.4.0-windows-x64.zip`**: Pacote completo zipado.
+- **`LiveFreeBrasil-v2.5.0-windows-x64.zip`**: Pacote completo zipado.
 
 Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho em segundo plano!
 
 ---
 
-## 🎯 Recursos & Destaques da Versão 2.4.0
+## 🎯 Recursos & Destaques da Versão 2.5.0
 
-- 🧅 **Motor Tor 100% Autônomo e Invisível**: Se o usuário não tiver o Tor, o programa baixa o motor oficial automaticamente e executa em segundo plano com zero janelas.
-- ⚡ **Auto-Connect & Fallback Resiliente**: Conecta instantaneamente. Se a rede local bloquear o Tor, o sistema ativa um backup internacional de alta velocidade na hora.
+- 🧅 **Motor Tor 100% Autônomo com Auto-Cura**: Localiza ou baixa o motor oficial do Tor automaticamente. Valida caminhos de arquivos de inicialização para evitar qualquer erro de boot no Windows.
+- 🛡️ **Sistema Anti-Fechamento da Janela**: O programa nunca fecha a janela do prompt repentinamente em caso de erro, permitindo ler mensagens e instruções na tela.
+- ⚡ **Pool Dinâmico de +100 Proxies Internacionais**: Caso a rede local do usuário bloqueie o Tor, o LiveFreeBrasil busca e testa instantaneamente dezenas de proxies internacionais públicas em paralelo com fallback automático.
 - 🩺 **Sistema de Diagnóstico & Logs (`--diag`)**: Ferramenta embutida para testar Gateway, TLS, IP de saída e latência, salvando histórico detalhado em `%LOCALAPPDATA%\LiveFreeBrasil\livefreebrasil.log`.
 - 🛑 **Encerramento Forçado Anti-Lock**: Garante que todas as instâncias zumbis do Discord sejam encerradas antes da inicialização para repassar 100% dos argumentos de rede ao processo raiz.
 - 🎥 **Fix do Erro 2012 e Streams de Amigos**: O tráfego de sinalização RTC (`*.discord.media`) e WebSockets conecta perfeitamente para permitir tanto transmitir quanto assistir à transmissão de outras pessoas na chamada sem tela preta ou ícone `!`.
