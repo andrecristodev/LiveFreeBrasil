@@ -834,21 +834,19 @@ def run_diagnostic():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="LiveFreeBrasil CLI — Inicia o Discord Desktop com proxy fora do Brasil para liberar Live e Câmera.",
-        formatter_class=argparse.RawTextHelpFormatter
+        description="LiveFreeBrasil CLI — Inicia o Discord Desktop com proxy fora do Brasil para liberar Live e Câmera."
     )
     
     parser.add_argument("-t", "--tor", action="store_true", help="Usa o Tor silencioso em segundo plano")
     parser.add_argument("-p", "--proxy", type=str, help="Proxy customizada (Ex: socks5://127.0.0.1:9050)")
-    parser.add_argument("-a", "--auto", action="store_true", help="Modo 100% automático e verificado")
-    parser.add_argument("--diag", "--diagnostic", action="store_true", help="Executa diagnóstico de rede e exibe logs")
-    parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache gráfico da GPU do Discord")
+    parser.add_argument("-a", "--auto", action="store_true", help="Modo automatico e verificado")
+    parser.add_argument("--diag", "--diagnostic", action="store_true", help="Executa diagnostico de rede e exibe logs")
+    parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache grafico da GPU do Discord")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
-    parser.add_argument("--no-switch", action="store_true", help="Mantém o tráfego 100% pelo Tor sem chavear para o Brasil")
-    parser.add_argument("-k", "--kill", action="store_true", help="Encerra instâncias anteriores do Discord")
-    parser.add_argument("--no-kill", action="store_true", help="Não encerra instâncias abertas")
-    parser.add_argument("-d", "--discord", type=str, help="Caminho do executável do Discord")
-    parser.add_argument("-v", "--version", action="version", version=f"LiveFreeBrasil CLI v{VERSION}")
+    parser.add_argument("--no-switch", action="store_true", help="Mantem o trafego pelo Tor sem chavear para o Brasil")
+    parser.add_argument("-k", "--kill", action="store_true", help="Encerra instancias anteriores do Discord")
+    parser.add_argument("--no-kill", action="store_true", help="Nao encerra instancias abertas")
+    parser.add_argument("-d", "--discord", type=str, help="Caminho do executavel do Discord")
     
     return parser.parse_args()
 
