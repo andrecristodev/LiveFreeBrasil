@@ -8,17 +8,18 @@ Ferramenta de código aberto para **Windows, Linux e macOS** que restaura as **t
 
 Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
 
-👉 **[Baixar LiveFreeBrasil v2.5.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+👉 **[Baixar LiveFreeBrasil v2.6.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
 
 - **`LiveFreeBrasil.exe`**: Executável único de 1 clique atualizado.
-- **`LiveFreeBrasil-v2.5.0-windows-x64.zip`**: Pacote completo zipado.
+- **`LiveFreeBrasil-v2.6.0-windows-x64.zip`**: Pacote completo zipado.
 
 Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho em segundo plano!
 
 ---
 
-## 🎯 Recursos & Destaques da Versão 2.5.0
+## 🎯 Recursos & Destaques da Versão 2.6.0
 
+- 🚀 **Aceleração Nativa de Streaming (Fix Carregamento Infinito)**: Descarrega o fluxo de mídia WebRTC (`*.discord.media`) direto pela sua internet de alta velocidade, eliminando qualquer travamento ou tela girando!
 - 🧅 **Motor Tor 100% Autônomo com Auto-Cura**: Localiza ou baixa o motor oficial do Tor automaticamente. Valida caminhos de arquivos de inicialização para evitar qualquer erro de boot no Windows.
 - 🛡️ **Sistema Anti-Fechamento da Janela**: O programa nunca fecha a janela do prompt repentinamente em caso de erro, permitindo ler mensagens e instruções na tela.
 - ⚡ **Pool Dinâmico de +100 Proxies Internacionais**: Caso a rede local do usuário bloqueie o Tor, o LiveFreeBrasil busca e testa instantaneamente dezenas de proxies internacionais públicas em paralelo com fallback automático.
