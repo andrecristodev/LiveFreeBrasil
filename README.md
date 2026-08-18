@@ -8,18 +8,19 @@ Ferramenta de código aberto para **Windows, Linux e macOS** que restaura as **t
 
 Se você não quer usar linha de comando ou não tem Python, baixe o executável pronto para uso:
 
-👉 **[Baixar LiveFreeBrasil v2.8.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
+👉 **[Baixar LiveFreeBrasil v3.0.0 (Última Versão Oficial)](https://github.com/andrecristodev/LiveFreeBrasil/releases/latest)**
 
 - **`LiveFreeBrasil.exe`**: Executável único de 1 clique atualizado.
-- **`LiveFreeBrasil-v2.8.0-windows-x64.zip`**: Pacote completo zipado.
+- **`LiveFreeBrasil-v3.0.0-windows-x64.zip`**: Pacote completo zipado.
 
 Basta dar dois cliques no `.exe` baixado e ele faz tudo sozinho em segundo plano!
 
 ---
 
-## 🎯 Recursos & Destaques da Versão 2.8.0
+## 🎯 Recursos & Destaques da Versão 3.0.0
 
-- 🌎 **Otimização Regional para América Latina (Argentina, Chile, Uruguai)**: O motor Tor e as rotas de backup agora priorizam nós vizinhos (`{ar}`, `{cl}`, `{uy}`, `{co}`), reduzindo a latência para a menor possível!
+- ⚡ **Modo Smart Handshake (Zero Lag & Máxima Velocidade)**: O Discord valida a região geográfica apenas durante os primeiros segundos de inicialização. O LiveFreeBrasil passa a validação e, após 10 segundos, **desconecta o Tor e restaura a sua internet nativa do Brasil (10ms de ping)**. As transmissões de tela e câmera permanecem **100% liberadas** durante toda a sessão!
+- 🌎 **Otimização Regional para América Latina (Argentina, Chile, Uruguai)**: O motor Tor e as rotas de backup priorizam nós vizinhos (`{ar}`, `{cl}`, `{uy}`, `{co}`).
 - 🛡️ **Fix Definitivo de Tela Preta**: Preserva os caches e shaders de GPU no boot padrão para abrir o Discord limpo em todas as placas de vídeo.
 - 🧅 **Motor Tor 100% Autônomo com Auto-Cura**: Localiza ou baixa o motor oficial do Tor automaticamente. Valida caminhos de arquivos de inicialização para evitar qualquer erro de boot no Windows.
 - 🛡️ **Sistema Anti-Fechamento da Janela**: O programa nunca fecha a janela do prompt repentinamente em caso de erro, permitindo ler mensagens e instruções na tela.

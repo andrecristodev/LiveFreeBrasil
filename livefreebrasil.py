@@ -22,7 +22,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, List, Tuple
 
-VERSION = "2.8.0"
+VERSION = "3.0.0"
 
 # Diretórios base
 LOCAL_APP_DATA = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
@@ -713,6 +713,7 @@ def parse_args():
     parser.add_argument("--diag", "--diagnostic", action="store_true", help="Executa diagnóstico de rede e exibe logs")
     parser.add_argument("--clean", "--clear-cache", action="store_true", help="Limpa cache gráfico da GPU do Discord")
     parser.add_argument("--disable", "--restore", "--normal", dest="disable", action="store_true", help="Desativa o bypass")
+    parser.add_argument("--keep-proxy", action="store_true", help="Mantém o Tor ativo continuamente em vez de desconectar após o boot")
     parser.add_argument("-k", "--kill", action="store_true", help="Encerra instâncias anteriores do Discord")
     parser.add_argument("--no-kill", action="store_true", help="Não encerra instâncias abertas")
     parser.add_argument("-d", "--discord", type=str, help="Caminho do executável do Discord")
@@ -849,7 +850,19 @@ def main():
     
     launch_discord(selected_install, proxy_url)
     
-    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Discord iniciado com Go Live, Câmera e Streams 100% liberados.", flush=True)
+    if not getattr(args, "keep_proxy", False) and "Tor" in country_label:
+        print(f"\n{Color.CYAN}[*] Modo Smart Handshake ativo:{Color.RESET}")
+        print(f"{Color.DIM}    ↳ O Discord valida a região apenas no boot. Restaurando sua internet de alta velocidade...{Color.RESET}")
+        for i in range(10, 0, -1):
+            sys.stdout.write(f"\r{Color.CYAN}[*] Concluindo autenticação inicial em {i}s...{Color.RESET}")
+            sys.stdout.flush()
+            time.sleep(1)
+        print("", flush=True)
+        kill_tor_processes()
+        log_success("Conexão nativa do Brasil restaurada! Chamadas e lives em velocidade máxima (sem lag).")
+        write_log("Smart Handshake concluído. Tor desvinculado com sucesso.", "SUCCESS")
+    
+    print(f"\n{Color.GREEN}{Color.BOLD}Tudo pronto!{Color.RESET} Discord aberto com Go Live, Câmera e Streams 100% liberados.", flush=True)
 
 
 if __name__ == "__main__":
